@@ -58,7 +58,7 @@ namespace osu.Game.Tournament
             base.SetHost(host);
 
             if (host.Window != null)
-                host.Window.Title = $"{Name} [tournament client]";
+                host.Window.Title = $"{Name} SUIJI CUP 2025";
         }
 
         private TournamentSpriteText initialisationText = null!;
