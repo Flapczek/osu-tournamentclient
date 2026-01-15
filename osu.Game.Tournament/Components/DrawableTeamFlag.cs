@@ -41,7 +41,7 @@ namespace osu.Game.Tournament.Components
                 new Box
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Colour = Colour4.FromHex("333"),
+                    Colour = Colour4.FromHex("e0dfe3"),
                 },
                 flagSprite = new Sprite
                 {

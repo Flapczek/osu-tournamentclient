@@ -199,7 +199,8 @@ namespace osu.Game.Tournament.Screens.Schedule
                             Anchor = Anchor.CentreLeft,
                             Origin = Anchor.CentreLeft,
                             Text = currentMatch.Value.Team1.Value?.FullName + " vs " + currentMatch.Value.Team2.Value?.FullName,
-                            Font = OsuFont.Torus.With(size: 24, weight: FontWeight.SemiBold)
+                            Font = OsuFont.Torus.With(size: 24, weight: FontWeight.SemiBold),
+                            Colour = OsuColour.Gray(0.1f)
                         },
                         new FillFlowContainer
                         {
@@ -211,7 +212,8 @@ namespace osu.Game.Tournament.Screens.Schedule
                             {
                                 new ScheduleMatchDate(currentMatch.Value.Date.Value)
                                 {
-                                    Font = OsuFont.Torus.With(size: 24, weight: FontWeight.Regular)
+                                    Font = OsuFont.Torus.With(size: 24, weight: FontWeight.Regular),
+                                    Colour = OsuColour.Gray(0.1f)
                                 }
                             }
                         },
@@ -240,7 +242,7 @@ namespace osu.Game.Tournament.Screens.Schedule
                     {
                         Anchor = Anchor.TopRight,
                         Origin = Anchor.TopLeft,
-                        Colour = OsuColour.Gray(0.7f),
+                        Colour = OsuColour.Gray(0.1f),
                         Alpha = conditional ? 0.6f : 1,
                         Font = OsuFont.Torus,
                         Margin = new MarginPadding { Horizontal = 10, Vertical = 5 },
@@ -249,7 +251,7 @@ namespace osu.Game.Tournament.Screens.Schedule
                     {
                         Anchor = Anchor.BottomRight,
                         Origin = Anchor.BottomLeft,
-                        Colour = OsuColour.Gray(0.7f),
+                        Colour = OsuColour.Gray(0.1f),
                         Alpha = conditional ? 0.6f : 1,
                         Margin = new MarginPadding { Horizontal = 10, Vertical = 5 },
                         Text = match.Date.Value.ToUniversalTime().ToString("HH:mm UTC") + (conditional ? " (conditional)" : "")
