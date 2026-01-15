@@ -199,7 +199,6 @@ namespace osu.Game.Tournament.Components
                                         Anchor = Anchor.Centre,
                                         Origin = Anchor.Centre,
                                         Direction = FillDirection.Vertical,
-                                        Colour = Color4.Black,
                                         Children = new Drawable[]
                                         {
                                             new DiffPiece(stats),
@@ -213,7 +212,6 @@ namespace osu.Game.Tournament.Components
                                         Anchor = Anchor.Centre,
                                         Origin = Anchor.Centre,
                                         Direction = FillDirection.Vertical,
-                                        Colour = Color4.Black,
                                         Children = new Drawable[]
                                         {
                                             new DiffPiece(("Length", length.ToFormattedDuration().ToString())),

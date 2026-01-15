@@ -88,13 +88,11 @@ namespace osu.Game.Screens.Play.HUD
                     {
                         Score1Text = new MatchScoreCounter
                         {
-                            Colour = OsuColour.Gray(0.1f),
                             Anchor = Anchor.TopCentre,
-                            Origin = Anchor.TopCentre,
+                            Origin = Anchor.TopCentre
                         },
                         Score2Text = new MatchScoreCounter
                         {
-                            Colour = OsuColour.Gray(0.1f),
                             Anchor = Anchor.TopCentre,
                             Origin = Anchor.TopCentre
                         },
@@ -102,7 +100,6 @@ namespace osu.Game.Screens.Play.HUD
                 },
                 scoreDiffText = new MatchScoreDiffCounter
                 {
-                    Colour = OsuColour.Gray(0.1f),
                     Anchor = Anchor.TopCentre,
                     Margin = new MarginPadding
                     {
