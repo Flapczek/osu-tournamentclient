@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Tournament.Components;
@@ -15,6 +16,11 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
         private TeamScoreDisplay teamDisplay1 = null!;
         private TeamScoreDisplay teamDisplay2 = null!;
         private DrawableTournamentHeaderLogo logo = null!;
+        private MatchRoundDisplay roundDisplay = null!;
+
+        private readonly BindableBool alignRoundNameWithSeeds = new BindableBool();
+
+        private const float aligned_round_name_top_margin = 74;
 
         private bool showScores = true;
 
@@ -51,7 +57,7 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
         }
 
         [BackgroundDependencyLoader]
-        private void load()
+        private void load(LadderInfo ladderInfo)
         {
             RelativeSizeAxes = Axes.X;
             Height = 95;
@@ -76,7 +82,7 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
                             Anchor = Anchor.TopCentre,
                             Origin = Anchor.TopCentre,
                         },
-                        new MatchRoundDisplay
+                        roundDisplay = new MatchRoundDisplay
                         {
                             Anchor = Anchor.TopCentre,
                             Origin = Anchor.TopCentre,
@@ -95,6 +101,9 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
                     Origin = Anchor.TopRight,
                 },
             };
+
+            alignRoundNameWithSeeds.BindTo(ladderInfo.AlignRoundNameWithSeeds);
+            alignRoundNameWithSeeds.BindValueChanged(_ => updateDisplay(), true);
         }
 
         protected override void LoadComplete()
@@ -109,6 +118,11 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
             teamDisplay2.ShowScore = showScores;
 
             logo.Alpha = showLogo ? 1 : 0;
+
+            roundDisplay.Margin = new MarginPadding
+            {
+                Top = !showLogo && alignRoundNameWithSeeds.Value ? aligned_round_name_top_margin : 0,
+            };
         }
     }
 }

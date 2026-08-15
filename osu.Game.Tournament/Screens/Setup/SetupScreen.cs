@@ -151,6 +151,12 @@ namespace osu.Game.Tournament.Screens.Setup
                 },
                 new LabelledSwitchButton
                 {
+                    Label = "Align round name with seeds",
+                    Description = "Moves the round name down to the same level as team seeds in gameplay.",
+                    Current = LadderInfo.AlignRoundNameWithSeeds,
+                },
+                new LabelledSwitchButton
+                {
                     Label = "1v1 mode",
                     Description = "Display Player 1 and Player 2 instead of Team Red and Team Blue.",
                     Current = LadderInfo.OneVsOneMode,
