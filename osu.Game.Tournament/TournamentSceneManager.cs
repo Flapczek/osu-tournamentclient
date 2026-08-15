@@ -195,21 +195,38 @@ namespace osu.Game.Tournament
             var lastScreen = currentScreen;
             currentScreen = target;
 
-            if (currentScreen.ChildrenOfType<TourneyVideo>().FirstOrDefault()?.VideoAvailable == true)
+            if (lastScreen is GameplayScreen gameplayScreen && gameplayScreen.WipeChromaArea())
             {
-                video.FadeOut(200);
+                if (target.ChildrenOfType<TourneyVideo>().FirstOrDefault()?.VideoAvailable == true)
+                    video.FadeOut(TournamentScreen.FADE_DELAY);
+                else
+                    video.Show();
 
-                // delay the hide to avoid a double-fade transition.
-                scheduledHide = Scheduler.AddDelayed(() => lastScreen?.Hide(), TournamentScreen.FADE_DELAY);
+                scheduledHide = Scheduler.AddDelayed(() =>
+                {
+                    lastScreen.Hide();
+                    screens.ChangeChildDepth(target, depth--);
+                    target.Show();
+                }, TournamentScreen.FADE_DELAY);
             }
             else
             {
-                lastScreen?.Hide();
-                video.Show();
-            }
+                if (target.ChildrenOfType<TourneyVideo>().FirstOrDefault()?.VideoAvailable == true)
+                {
+                    video.FadeOut(TournamentScreen.FADE_DELAY);
 
-            screens.ChangeChildDepth(currentScreen, depth--);
-            currentScreen.Show();
+                    // delay the hide to avoid a double-fade transition.
+                    scheduledHide = Scheduler.AddDelayed(() => lastScreen?.Hide(), TournamentScreen.FADE_DELAY);
+                }
+                else
+                {
+                    lastScreen?.Hide();
+                    video.Show();
+                }
+
+                screens.ChangeChildDepth(target, depth--);
+                target.Show();
+            }
 
             switch (currentScreen)
             {
