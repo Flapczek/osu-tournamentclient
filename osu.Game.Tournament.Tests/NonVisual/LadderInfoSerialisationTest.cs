@@ -26,6 +26,19 @@ namespace osu.Game.Tournament.Tests.NonVisual
             JsonConvert.SerializeObject(ladder);
         }
 
+        [Test]
+        public void TestOneVsOneModeSerialisation()
+        {
+            var ladder = createSampleLadder();
+            ladder.OneVsOneMode.Value = true;
+
+            string serialised = JsonConvert.SerializeObject(ladder);
+            var deserialised = JsonConvert.DeserializeObject<LadderInfo>(serialised, new JsonPointConverter());
+
+            Assert.That(deserialised, Is.Not.Null);
+            Assert.That(deserialised!.OneVsOneMode.Value, Is.True);
+        }
+
         private static LadderInfo createSampleLadder()
         {
             var match = TournamentTestScene.CreateSampleMatch();

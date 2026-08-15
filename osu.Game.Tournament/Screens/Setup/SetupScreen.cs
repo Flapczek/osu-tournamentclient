@@ -149,6 +149,12 @@ namespace osu.Game.Tournament.Screens.Setup
                     Description = "Team seeds will display alongside each team at the top in gameplay/map pool screens.",
                     Current = LadderInfo.DisplayTeamSeeds,
                 },
+                new LabelledSwitchButton
+                {
+                    Label = "1v1 mode",
+                    Description = "Display Player 1 and Player 2 instead of Team Red and Team Blue.",
+                    Current = LadderInfo.OneVsOneMode,
+                },
             };
         }
 

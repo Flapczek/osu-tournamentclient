@@ -3,6 +3,7 @@
 
 using System.Linq;
 using osu.Framework.Allocation;
+using osu.Framework.Audio;
 using osu.Framework.Bindables;
 using osu.Framework.Configuration;
 using osu.Framework.Extensions.Color4Extensions;
@@ -36,6 +37,7 @@ namespace osu.Game.Tournament
 
         private Bindable<WindowMode> windowMode = null!;
         private readonly BindableSize windowSize = new BindableSize();
+        private readonly BindableDouble tournamentVolumeAdjustment = new BindableDouble();
 
         private LoadingSpinner loadingSpinner = null!;
 
@@ -45,6 +47,8 @@ namespace osu.Game.Tournament
         [BackgroundDependencyLoader]
         private void load(FrameworkConfigManager frameworkConfig, GameHost host)
         {
+            Audio.AddAdjustment(AdjustableProperty.Volume, tournamentVolumeAdjustment);
+
             frameworkConfig.BindWith(FrameworkSetting.WindowedSize, windowSize);
 
             windowMode = frameworkConfig.GetBindable<WindowMode>(FrameworkSetting.WindowMode);
