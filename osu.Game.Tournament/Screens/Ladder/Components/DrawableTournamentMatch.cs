@@ -23,6 +23,7 @@ namespace osu.Game.Tournament.Screens.Ladder.Components
     {
         public readonly TournamentMatch Match;
         private readonly bool editor;
+        private readonly float teamAvatarSize;
         protected readonly FillFlowContainer<DrawableMatchTeam> Flow;
         private readonly Drawable selectionBox;
         private readonly Drawable currentMatchSelectionBox;
@@ -34,10 +35,11 @@ namespace osu.Game.Tournament.Screens.Ladder.Components
         [Resolved]
         private LadderInfo? ladderInfo { get; set; }
 
-        public DrawableTournamentMatch(TournamentMatch match, bool editor = false)
+        public DrawableTournamentMatch(TournamentMatch match, bool editor = false, float teamAvatarSize = 54)
         {
             Match = match;
             this.editor = editor;
+            this.teamAvatarSize = teamAvatarSize;
 
             AutoSizeAxes = Axes.Both;
 
@@ -279,8 +281,8 @@ namespace osu.Game.Tournament.Screens.Ladder.Components
 
             Flow.Children = new[]
             {
-                new DrawableMatchTeam(Match.Team1.Value, Match, Match.Losers.Value),
-                new DrawableMatchTeam(Match.Team2.Value, Match, Match.Losers.Value)
+                new DrawableMatchTeam(Match.Team1.Value, Match, Match.Losers.Value, teamAvatarSize),
+                new DrawableMatchTeam(Match.Team2.Value, Match, Match.Losers.Value, teamAvatarSize)
             };
 
             SchedulerAfterChildren.Add(() => Scheduler.Add(updateProgression));

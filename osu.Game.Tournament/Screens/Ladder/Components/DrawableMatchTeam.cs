@@ -56,8 +56,8 @@ namespace osu.Game.Tournament.Screens.Ladder.Components
         [Resolved]
         private LadderEditorInfo? editorInfo { get; set; }
 
-        public DrawableMatchTeam(TournamentTeam? team, TournamentMatch match, bool losers)
-            : base(team)
+        public DrawableMatchTeam(TournamentTeam? team, TournamentMatch match, bool losers, float avatarSize = 54)
+            : base(team, avatarSize)
         {
             this.match = match;
             this.losers = losers;

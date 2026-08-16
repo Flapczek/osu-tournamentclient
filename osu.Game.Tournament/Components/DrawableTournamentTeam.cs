@@ -20,11 +20,11 @@ namespace osu.Game.Tournament.Components
         [UsedImplicitly]
         private Bindable<string>? acronym;
 
-        protected DrawableTournamentTeam(TournamentTeam? team)
+        protected DrawableTournamentTeam(TournamentTeam? team, float avatarSize = 54)
         {
             Team = team;
 
-            Flag = new DrawableTeamFlag(team);
+            Flag = new DrawableTeamFlag(team, avatarSize);
             AcronymText = new TournamentSpriteText
             {
                 Font = OsuFont.Torus.With(weight: FontWeight.Regular),

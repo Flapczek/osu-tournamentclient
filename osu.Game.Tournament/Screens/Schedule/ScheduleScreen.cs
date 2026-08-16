@@ -223,7 +223,7 @@ namespace osu.Game.Tournament.Screens.Schedule
         public partial class ScheduleMatch : DrawableTournamentMatch
         {
             public ScheduleMatch(TournamentMatch match, bool showTimestamp = true)
-                : base(match)
+                : base(match, teamAvatarSize: 68)
             {
                 Flow.Direction = FillDirection.Horizontal;
 
