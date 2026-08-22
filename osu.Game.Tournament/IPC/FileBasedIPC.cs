@@ -79,6 +79,8 @@ namespace osu.Game.Tournament.IPC
                                 int beatmapId = int.Parse(sr.ReadLine().AsNonNull());
                                 int mods = int.Parse(sr.ReadLine().AsNonNull());
 
+                                BeatmapID.Value = beatmapId;
+
                                 if (lastBeatmapId != beatmapId)
                                 {
                                     beatmapLookupRequest?.Cancel();
