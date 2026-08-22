@@ -2,7 +2,9 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using osu.Game.Tournament.IO;
 using osu.Game.Tournament.Models;
 
 namespace osu.Game.Tournament.Tests.NonVisual
@@ -67,6 +69,48 @@ namespace osu.Game.Tournament.Tests.NonVisual
 
             Assert.That(deserialised, Is.Not.Null);
             Assert.That(deserialised!.UseIPCForMapPoolProgression.Value, Is.True);
+        }
+
+        [Test]
+        public void TestCompatibleSerialisationRemovesEnhancedProperties()
+        {
+            var ladder = createSampleLadder();
+            ladder.OneVsOneMode.Value = true;
+            ladder.WipeChromaArea.Value = true;
+            ladder.UseIPCForMapPoolProgression.Value = true;
+
+            string serialised = JsonConvert.SerializeObject(ladder);
+            var compatibleBracket = JObject.Parse(CompatibleBracketSerialiser.CreateCompatibleBracket(serialised));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(compatibleBracket.Property(nameof(LadderInfo.OneVsOneMode)), Is.Null);
+                Assert.That(compatibleBracket.Property(nameof(LadderInfo.WipeChromaArea)), Is.Null);
+                Assert.That(compatibleBracket.Property(nameof(LadderInfo.UseIPCForMapPoolProgression)), Is.Null);
+            });
+        }
+
+        [Test]
+        public void TestCompatibleSerialisationPreservesStandardProperties()
+        {
+            var ladder = createSampleLadder();
+            ladder.AutoProgressScreens.Value = true;
+            ladder.SplitMapPoolByMods.Value = false;
+            ladder.DisplayTeamSeeds.Value = true;
+
+            string serialised = JsonConvert.SerializeObject(ladder);
+            var compatibleBracket = JObject.Parse(CompatibleBracketSerialiser.CreateCompatibleBracket(serialised));
+            var originalBracket = JObject.Parse(serialised);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(compatibleBracket[nameof(LadderInfo.Teams)], Is.EqualTo(originalBracket[nameof(LadderInfo.Teams)]));
+                Assert.That(compatibleBracket[nameof(LadderInfo.Rounds)], Is.EqualTo(originalBracket[nameof(LadderInfo.Rounds)]));
+                Assert.That(compatibleBracket[nameof(LadderInfo.Matches)], Is.EqualTo(originalBracket[nameof(LadderInfo.Matches)]));
+                Assert.That(compatibleBracket[nameof(LadderInfo.AutoProgressScreens)], Is.EqualTo(originalBracket[nameof(LadderInfo.AutoProgressScreens)]));
+                Assert.That(compatibleBracket[nameof(LadderInfo.SplitMapPoolByMods)], Is.EqualTo(originalBracket[nameof(LadderInfo.SplitMapPoolByMods)]));
+                Assert.That(compatibleBracket[nameof(LadderInfo.DisplayTeamSeeds)], Is.EqualTo(originalBracket[nameof(LadderInfo.DisplayTeamSeeds)]));
+            });
         }
 
         private static LadderInfo createSampleLadder()
