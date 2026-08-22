@@ -30,6 +30,7 @@ namespace osu.Game.Tournament
     public partial class TournamentGameBase : OsuGameBase
     {
         public const string BRACKET_FILENAME = @"bracket.json";
+        internal const string COMPATIBLE_BRACKET_FILENAME = @"bracket-compatible.json";
         private LadderInfo ladder = new LadderInfo();
         private TournamentStorage storage = null!;
         private DependencyContainer dependencies = null!;
@@ -338,6 +339,23 @@ namespace osu.Game.Tournament
             }
 
             saveChanges();
+        }
+
+        internal void ExportCompatibleBracket()
+        {
+            if (!bracketLoadTaskCompletionSource.Task.IsCompletedSuccessfully)
+            {
+                Logger.Log("Inhibiting compatible bracket export as bracket parsing failed");
+                return;
+            }
+
+            string serialisedLadder = CompatibleBracketSerialiser.CreateCompatibleBracket(GetSerialisedLadder());
+
+            using (var stream = storage.CreateFileSafely(COMPATIBLE_BRACKET_FILENAME))
+            using (var sw = new StreamWriter(stream))
+                sw.Write(serialisedLadder);
+
+            storage.PresentFileExternally(COMPATIBLE_BRACKET_FILENAME);
         }
 
         private void saveChanges()

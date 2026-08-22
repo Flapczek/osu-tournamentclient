@@ -14,6 +14,7 @@ namespace osu.Game.Tournament.Screens.Setup
         private OsuDropdown<string> dropdown = null!;
         private OsuButton folderButton = null!;
         private OsuButton reloadTournamentsButton = null!;
+        private OsuButton exportBracketButton = null!;
 
         [Resolved]
         private TournamentGameBase game { get; set; } = null!;
@@ -25,9 +26,14 @@ namespace osu.Game.Tournament.Screens.Setup
 
             dropdown.Current = storage.CurrentTournament;
             dropdown.Items = storage.ListTournaments();
-            dropdown.Current.BindValueChanged(v => Button.Enabled.Value = v.NewValue != startupTournament, true);
+            dropdown.Current.BindValueChanged(v =>
+            {
+                Button.Enabled.Value = v.NewValue != startupTournament;
+                exportBracketButton.Enabled.Value = v.NewValue == startupTournament;
+            }, true);
 
             reloadTournamentsButton.Action = () => dropdown.Items = storage.ListTournaments();
+            exportBracketButton.Action = game.ExportCompatibleBracket;
 
             Action = () =>
             {
@@ -58,6 +64,12 @@ namespace osu.Game.Tournament.Screens.Setup
             FlowContainer.Insert(-3, dropdown = new OsuDropdown<string>
             {
                 Width = 510
+            });
+
+            FlowContainer.Insert(-1, exportBracketButton = new RoundedButton
+            {
+                Text = "Export bracket",
+                Width = BUTTON_SIZE
             });
 
             return drawable;
