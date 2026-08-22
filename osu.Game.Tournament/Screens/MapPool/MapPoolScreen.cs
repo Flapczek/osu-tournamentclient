@@ -1,6 +1,8 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
@@ -27,6 +29,8 @@ namespace osu.Game.Tournament.Screens.MapPool
         [Resolved]
         private TournamentSceneManager? sceneManager { get; set; }
 
+        private MatchIPCInfo ipc = null!;
+
         private TeamColour pickColour;
         private ChoiceType pickType;
 
@@ -36,10 +40,24 @@ namespace osu.Game.Tournament.Screens.MapPool
         private OsuButton buttonBluePick = null!;
 
         private ScheduledDelegate? scheduledScreenChange;
+        private ScheduledDelegate? scheduledIpcScreenChange;
+
+        private bool screenActive = true;
+        private int playingStateVersion;
+        private int playingBeatmapId;
+        private int armedAfterPlayingStateVersion;
+        private bool ipcProgressionArmed;
+        private BeatmapChoice? expectedPick;
+        private readonly HashSet<BeatmapChoice> progressedPicks = new HashSet<BeatmapChoice>();
+
+        protected virtual double GameplayTransitionDelay => 10000;
+        protected virtual double IpcGameplayTransitionDelay => 2000;
 
         [BackgroundDependencyLoader]
         private void load(MatchIPCInfo ipc)
         {
+            this.ipc = ipc;
+
             InternalChildren = new Drawable[]
             {
                 new TourneyVideo("mappool")
@@ -104,11 +122,78 @@ namespace osu.Game.Tournament.Screens.MapPool
                             LabelText = "Split display by mods",
                             Current = LadderInfo.SplitMapPoolByMods,
                         },
+                        new OsuCheckbox
+                        {
+                            LabelText = "Wait for picked map to start",
+                            Current = LadderInfo.UseIPCForMapPoolProgression,
+                        },
                     },
                 }
             };
 
             ipc.Beatmap.BindValueChanged(beatmapChanged);
+            ipc.BeatmapID.BindValueChanged(beatmapIdChanged, true);
+            ipc.State.BindValueChanged(ipcStateChanged, true);
+
+            LadderInfo.UseIPCForMapPoolProgression.BindValueChanged(useIpcForMapPoolProgressionChanged, true);
+            LadderInfo.AutoProgressScreens.BindValueChanged(autoProgressScreensChanged, true);
+        }
+
+        private void beatmapIdChanged(ValueChangedEvent<int> beatmapId)
+        {
+            if (ipc.State.Value != TourneyState.Playing)
+                return;
+
+            if (playingBeatmapId <= 0 && beatmapId.NewValue > 0)
+            {
+                playingBeatmapId = beatmapId.NewValue;
+                tryProgressToGameplayFromIpc();
+            }
+            else if (scheduledIpcScreenChange != null && beatmapId.NewValue != playingBeatmapId)
+            {
+                // Once a Playing session changes away from the map it started with, require a
+                // fresh Playing edge before allowing progression, even if it later changes back.
+                cancelScheduledIpcScreenChange();
+                ipcProgressionArmed = false;
+            }
+        }
+
+        private void ipcStateChanged(ValueChangedEvent<TourneyState> state)
+        {
+            if (state.NewValue == TourneyState.Playing)
+            {
+                if (state.OldValue != TourneyState.Playing)
+                    playingStateVersion++;
+
+                // FileBasedIPC updates BeatmapID before State, so this captures the map which
+                // entered Playing rather than allowing a later map change in the same play to qualify.
+                playingBeatmapId = ipc.BeatmapID.Value;
+                tryProgressToGameplayFromIpc();
+            }
+            else
+            {
+                playingBeatmapId = 0;
+                cancelScheduledIpcScreenChange();
+                updateExpectedPick(forceRearm: true);
+            }
+        }
+
+        private void useIpcForMapPoolProgressionChanged(ValueChangedEvent<bool> useIpc)
+        {
+            cancelScheduledScreenChange();
+            updateExpectedPick(forceRearm: true);
+
+            if (!useIpc.NewValue)
+                scheduleTimerForExpectedPick();
+        }
+
+        private void autoProgressScreensChanged(ValueChangedEvent<bool> autoProgressScreens)
+        {
+            cancelScheduledScreenChange();
+            updateExpectedPick(forceRearm: true);
+
+            if (autoProgressScreens.NewValue && !LadderInfo.UseIPCForMapPoolProgression.Value)
+                scheduleTimerForExpectedPick();
         }
 
         private Bindable<bool>? splitMapPoolByMods;
@@ -133,7 +218,7 @@ namespace osu.Game.Tournament.Screens.MapPool
 
             // if bans have already been placed, beatmap changes result in a selection being made automatically
             if (beatmap.NewValue?.OnlineID > 0)
-                addForBeatmap(beatmap.NewValue.OnlineID);
+                AddForBeatmap(beatmap.NewValue.OnlineID);
         }
 
         private void setMode(TeamColour colour, ChoiceType choiceType)
@@ -190,7 +275,7 @@ namespace osu.Game.Tournament.Screens.MapPool
             if (map != null)
             {
                 if (e.Button == MouseButton.Left && map.Beatmap?.OnlineID > 0)
-                    addForBeatmap(map.Beatmap.OnlineID);
+                    AddForBeatmap(map.Beatmap.OnlineID);
                 else
                 {
                     var existing = CurrentMatch.Value?.PicksBans.FirstOrDefault(p => p.BeatmapID == map.Beatmap?.OnlineID);
@@ -214,7 +299,7 @@ namespace osu.Game.Tournament.Screens.MapPool
             setNextMode();
         }
 
-        private void addForBeatmap(int beatmapId)
+        protected void AddForBeatmap(int beatmapId)
         {
             if (CurrentMatch.Value?.Round.Value == null)
                 return;
@@ -227,34 +312,161 @@ namespace osu.Game.Tournament.Screens.MapPool
                 // don't attempt to add if already exists.
                 return;
 
-            CurrentMatch.Value.PicksBans.Add(new BeatmapChoice
+            var newChoice = new BeatmapChoice
             {
                 Team = pickColour,
                 Type = pickType,
                 BeatmapID = beatmapId
-            });
+            };
+
+            CurrentMatch.Value.PicksBans.Add(newChoice);
 
             setNextMode();
-
-            if (LadderInfo.AutoProgressScreens.Value)
-            {
-                if (pickType == ChoiceType.Pick && CurrentMatch.Value.PicksBans.Any(i => i.Type == ChoiceType.Pick))
-                {
-                    scheduledScreenChange?.Cancel();
-                    scheduledScreenChange = Scheduler.AddDelayed(() => { sceneManager?.SetScreen(typeof(GameplayScreen)); }, 10000);
-                }
-            }
         }
+
+        private void picksBansChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (!updateExpectedPick())
+                return;
+
+            cancelScheduledScreenChange();
+
+            if (!LadderInfo.UseIPCForMapPoolProgression.Value)
+                scheduleTimerForExpectedPick();
+        }
+
+        private bool updateExpectedPick(bool forceRearm = false)
+        {
+            var latestPick = CurrentMatch.Value?.PicksBans.LastOrDefault(choice => choice.Type == ChoiceType.Pick);
+            bool pickChanged = !ReferenceEquals(expectedPick, latestPick);
+
+            if (!forceRearm && !pickChanged)
+                return false;
+
+            expectedPick = latestPick;
+            armedAfterPlayingStateVersion = playingStateVersion;
+            ipcProgressionArmed = screenActive
+                                  && LadderInfo.UseIPCForMapPoolProgression.Value
+                                  && LadderInfo.AutoProgressScreens.Value
+                                  && latestPick?.BeatmapID > 0
+                                  && !progressedPicks.Contains(latestPick);
+
+            return pickChanged;
+        }
+
+        private void tryProgressToGameplayFromIpc()
+        {
+            var pick = expectedPick;
+
+            if (!screenActive
+                || !ipcProgressionArmed
+                || !LadderInfo.UseIPCForMapPoolProgression.Value
+                || !LadderInfo.AutoProgressScreens.Value
+                || pick == null
+                || progressedPicks.Contains(pick)
+                || ipc.State.Value != TourneyState.Playing
+                || playingStateVersion <= armedAfterPlayingStateVersion
+                || playingBeatmapId != pick.BeatmapID)
+                return;
+
+            ipcProgressionArmed = false;
+            int expectedPlayingStateVersion = playingStateVersion;
+            int expectedBeatmapId = playingBeatmapId;
+
+            scheduledIpcScreenChange = Scheduler.AddDelayed(() =>
+            {
+                scheduledIpcScreenChange = null;
+
+                if (!screenActive
+                    || !LadderInfo.UseIPCForMapPoolProgression.Value
+                    || !LadderInfo.AutoProgressScreens.Value
+                    || !ReferenceEquals(expectedPick, pick)
+                    || progressedPicks.Contains(pick)
+                    || ipc.State.Value != TourneyState.Playing
+                    || playingStateVersion != expectedPlayingStateVersion
+                    || playingBeatmapId != expectedBeatmapId
+                    || ipc.BeatmapID.Value != expectedBeatmapId
+                    || expectedBeatmapId != pick.BeatmapID)
+                {
+                    updateExpectedPick(forceRearm: true);
+                    return;
+                }
+
+                progressedPicks.Add(pick);
+                ProgressToGameplay();
+            }, IpcGameplayTransitionDelay);
+        }
+
+        private void scheduleTimerForExpectedPick()
+        {
+            var pick = expectedPick;
+
+            if (!screenActive
+                || !LadderInfo.AutoProgressScreens.Value
+                || LadderInfo.UseIPCForMapPoolProgression.Value
+                || pick == null
+                || progressedPicks.Contains(pick))
+                return;
+
+            scheduledScreenChange = Scheduler.AddDelayed(() =>
+            {
+                scheduledScreenChange = null;
+
+                if (!screenActive
+                    || !LadderInfo.AutoProgressScreens.Value
+                    || LadderInfo.UseIPCForMapPoolProgression.Value
+                    || !ReferenceEquals(expectedPick, pick)
+                    || progressedPicks.Contains(pick))
+                    return;
+
+                progressedPicks.Add(pick);
+                ProgressToGameplay();
+            }, GameplayTransitionDelay);
+        }
+
+        private void cancelScheduledScreenChange()
+        {
+            scheduledScreenChange?.Cancel();
+            scheduledScreenChange = null;
+            cancelScheduledIpcScreenChange();
+        }
+
+        private void cancelScheduledIpcScreenChange()
+        {
+            scheduledIpcScreenChange?.Cancel();
+            scheduledIpcScreenChange = null;
+        }
+
+        protected virtual void ProgressToGameplay() => sceneManager?.SetScreen(typeof(GameplayScreen));
 
         public override void Hide()
         {
-            scheduledScreenChange?.Cancel();
+            screenActive = false;
+            ipcProgressionArmed = false;
+            cancelScheduledScreenChange();
             base.Hide();
+        }
+
+        public override void Show()
+        {
+            screenActive = true;
+            updateExpectedPick(forceRearm: true);
+            base.Show();
         }
 
         protected override void CurrentMatchChanged(ValueChangedEvent<TournamentMatch?> match)
         {
+            cancelScheduledScreenChange();
+
+            if (match.OldValue != null)
+                match.OldValue.PicksBans.CollectionChanged -= picksBansChanged;
+
             base.CurrentMatchChanged(match);
+
+            if (match.NewValue != null)
+                match.NewValue.PicksBans.CollectionChanged += picksBansChanged;
+
+            updateExpectedPick(forceRearm: true);
             updateDisplay();
         }
 
