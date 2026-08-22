@@ -58,7 +58,7 @@ namespace osu.Game.Tournament
             base.SetHost(host);
 
             if (host.Window != null)
-                host.Window.Title = $"{Name} [1v1 tournament client mode]";
+                host.Window.Title = $"{Name} [tournament client enhanced]";
         }
 
         private TournamentSpriteText initialisationText = null!;
