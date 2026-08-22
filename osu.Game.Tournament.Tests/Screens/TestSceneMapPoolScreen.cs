@@ -7,6 +7,7 @@ using osu.Framework.Allocation;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Testing;
 using osu.Game.Tournament.Components;
+using osu.Game.Tournament.IPC;
 using osu.Game.Tournament.Models;
 using osu.Game.Tournament.Screens.MapPool;
 using osuTK;
@@ -17,6 +18,8 @@ namespace osu.Game.Tournament.Tests.Screens
     public partial class TestSceneMapPoolScreen : TournamentScreenTestScene
     {
         private MapPoolScreen screen = null!;
+        private int firstPickedBeatmapId;
+        private int latestPickedBeatmapId;
 
         [BackgroundDependencyLoader]
         private void load()
@@ -32,11 +35,25 @@ namespace osu.Game.Tournament.Tests.Screens
 
         private void resetState()
         {
+            screen.Hide();
+
+            Ladder.AutoProgressScreens.Value = true;
+            Ladder.UseIPCForMapPoolProgression.Value = true;
+            Ladder.OneVsOneMode.Value = false;
             Ladder.SplitMapPoolByMods.Value = true;
+
+            IPCInfo.State.Value = TourneyState.Idle;
+            IPCInfo.BeatmapID.Value = 0;
+            IPCInfo.Beatmap.Value = null;
 
             Ladder.CurrentMatch.Value = new TournamentMatch();
             Ladder.CurrentMatch.Value = Ladder.Matches.First();
             Ladder.CurrentMatch.Value.PicksBans.Clear();
+
+            firstPickedBeatmapId = 0;
+            latestPickedBeatmapId = 0;
+            ((TestMapPoolScreen)screen).ResetGameplayTransitionCount();
+            screen.Show();
         }
 
         [SetUp]
@@ -147,6 +164,227 @@ namespace osu.Game.Tournament.Tests.Screens
             AddStep("disable splitting map pool by mods", () => Ladder.SplitMapPoolByMods.Value = false);
 
             AddStep("reset state", resetState);
+        }
+
+        [Test]
+        public void TestTimerSelectedManualProgression()
+        {
+            setProgressionSettings(useIpcProgression: false, autoProgressScreens: false, oneVsOneMode: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+        }
+
+        [Test]
+        public void TestTimerSelectedUsesExistingProgression()
+        {
+            setProgressionSettings(useIpcProgression: false, autoProgressScreens: true, oneVsOneMode: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            AddUntilStep("timer progresses to gameplay", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcSelectedManualProgression()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: false, oneVsOneMode: false);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+        }
+
+        [Test]
+        public void TestIpcSelectedUsesPickedMapPlayingProgression()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true, oneVsOneMode: false);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            AddAssert("production IPC delay is two seconds", () => ((TestMapPoolScreen)screen).ProductionIpcGameplayTransitionDelay, () => Is.EqualTo(2000));
+
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+            AddUntilStep("IPC progresses to gameplay", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+
+            AddStep("send another Playing edge", () =>
+            {
+                IPCInfo.State.Value = TourneyState.Ranking;
+                IPCInfo.State.Value = TourneyState.Playing;
+            });
+            assertGameplayTransitionCount(1);
+        }
+
+        [Test]
+        public void TestIpcProgressionDelayCancelledWhenPlayingEnds()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+            AddStep("leave Playing before delay", () => IPCInfo.State.Value = TourneyState.Ranking);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("fresh Playing edge progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcProgressionDelayCancelledWhenLatestPickChanges()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(2);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+            pickMap(1);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("new latest pick progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcProgressionDelayCancelledWhenMapPoolHidden()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+            AddStep("hide map pool before delay", () => screen.Hide());
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+
+            AddStep("re-enter map pool", () => screen.Show());
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("fresh Playing edge progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcProgressionRejectsWrongMapAndSamePlayingSessionMapChange()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId + 1);
+            assertGameplayTransitionCount(0);
+
+            AddStep("change map during same Playing state", () => IPCInfo.BeatmapID.Value = latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("new correct Playing edge progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcProgressionRejectsStalePlayingOnPickAndReentry()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+
+            AddStep("start map before pick", () =>
+            {
+                IPCInfo.BeatmapID.Value = firstPickedBeatmapId;
+                IPCInfo.State.Value = TourneyState.Playing;
+            });
+
+            pickMap(0);
+            assertGameplayTransitionCount(0);
+
+            AddStep("hide and re-enter map pool", () =>
+            {
+                screen.Hide();
+                screen.Show();
+            });
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("fresh Playing edge progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestIpcProgressionTracksLatestPick()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(2);
+            pickMap(0);
+            pickMap(1);
+
+            startPlaying(() => firstPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("latest pick progresses", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestEnablingIpcProgressionCancelsTimer()
+        {
+            setProgressionSettings(useIpcProgression: false, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            AddStep("enable IPC before timer", () => Ladder.UseIPCForMapPoolProgression.Value = true);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            AddUntilStep("IPC progresses after mode change", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestDisablingIpcProgressionStartsTimer()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            AddStep("disable IPC progression", () => Ladder.UseIPCForMapPoolProgression.Value = false);
+            AddUntilStep("timer progresses after mode change", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TestDisablingAutoProgressCancelsIpcProgression()
+        {
+            setProgressionSettings(useIpcProgression: true, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(0);
+            AddStep("disable auto progress during delay", () => Ladder.AutoProgressScreens.Value = false);
+            waitPastTestTransitionDelay();
+            assertGameplayTransitionCount(0);
+        }
+
+        [Test]
+        public void TestCompletedPickDoesNotRetriggerAfterSelectorChange()
+        {
+            setProgressionSettings(useIpcProgression: false, autoProgressScreens: true);
+            prepareMapsForAutoProgression(1);
+            pickMap(0);
+
+            AddUntilStep("timer progresses to gameplay", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(1));
+            AddStep("enable IPC after progression", () => Ladder.UseIPCForMapPoolProgression.Value = true);
+            startPlaying(() => latestPickedBeatmapId);
+            assertGameplayTransitionCount(1);
         }
 
         [Test]
@@ -339,6 +577,61 @@ namespace osu.Game.Tournament.Tests.Screens
             });
         }
 
+        private void setProgressionSettings(bool useIpcProgression, bool autoProgressScreens, bool oneVsOneMode = false) => AddStep(
+            $"set IPC {useIpcProgression}, auto progress {autoProgressScreens}, and 1v1 {oneVsOneMode}",
+            () =>
+            {
+                Ladder.OneVsOneMode.Value = oneVsOneMode;
+                Ladder.UseIPCForMapPoolProgression.Value = useIpcProgression;
+                Ladder.AutoProgressScreens.Value = autoProgressScreens;
+            });
+
+        private void prepareMapsForAutoProgression(int count)
+        {
+            AddStep($"prepare {count} maps", () =>
+            {
+                var round = Ladder.CurrentMatch.Value!.Round.Value!;
+                round.BanCount.Value = 0;
+                round.Beatmaps.Clear();
+
+                for (int i = 0; i < count; i++)
+                    addBeatmap();
+
+                firstPickedBeatmapId = round.Beatmaps[0].Beatmap!.OnlineID;
+                Ladder.SplitMapPoolByMods.Value = false;
+            });
+            AddUntilStep("prepared maps are displayed", () =>
+            {
+                var expectedIds = Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps.Select(beatmap => beatmap.Beatmap!.OnlineID);
+                var displayedIds = screen.ChildrenOfType<TournamentBeatmapPanel>().Where(panel => panel.IsAlive).Select(panel => panel.Beatmap!.OnlineID);
+                return expectedIds.All(displayedIds.Contains);
+            });
+        }
+
+        private void pickMap(int index)
+        {
+            AddStep("select red pick", () => screen.ChildrenOfType<TourneyButton>().First(btn => btn.Text == "Red Pick").TriggerClick());
+            AddStep($"pick map {index}", () =>
+            {
+                int beatmapId = Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps[index].Beatmap!.OnlineID;
+                ((TestMapPoolScreen)screen).AddSelectedBeatmap(beatmapId);
+                latestPickedBeatmapId = Ladder.CurrentMatch.Value!.PicksBans.Last(choice => choice.Type == ChoiceType.Pick).BeatmapID;
+            });
+        }
+
+        private void startPlaying(System.Func<int> getBeatmapId) => AddStep("start playing beatmap", () =>
+        {
+            int beatmapId = getBeatmapId();
+            IPCInfo.State.Value = TourneyState.WaitingForClients;
+            IPCInfo.BeatmapID.Value = beatmapId;
+            IPCInfo.State.Value = TourneyState.Playing;
+        });
+
+        private void waitPastTestTransitionDelay() => AddWaitStep("wait past timer delay", 90);
+
+        private void assertGameplayTransitionCount(int expected) =>
+            AddAssert($"gameplay transition count is {expected}", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(expected));
+
         private void clickBeatmapPanel(int index)
         {
             InputManager.MoveMouseTo(screen.ChildrenOfType<TournamentBeatmapPanel>().ElementAt(index));
@@ -347,6 +640,18 @@ namespace osu.Game.Tournament.Tests.Screens
 
         private partial class TestMapPoolScreen : MapPoolScreen
         {
+            public int GameplayTransitionCount { get; private set; }
+            public double ProductionIpcGameplayTransitionDelay => base.IpcGameplayTransitionDelay;
+
+            protected override double GameplayTransitionDelay => 1000;
+            protected override double IpcGameplayTransitionDelay => 1000;
+
+            protected override void ProgressToGameplay() => GameplayTransitionCount++;
+
+            public void ResetGameplayTransitionCount() => GameplayTransitionCount = 0;
+
+            public void AddSelectedBeatmap(int beatmapId) => AddForBeatmap(beatmapId);
+
             // this is a bit of a test-specific workaround.
             // the way pick/ban is implemented is a bit funky; the screen itself is what handles the mouse there,
             // rather than the beatmap panels themselves.

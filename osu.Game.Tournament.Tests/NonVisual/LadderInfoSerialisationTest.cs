@@ -52,6 +52,23 @@ namespace osu.Game.Tournament.Tests.NonVisual
             Assert.That(deserialised!.WipeChromaArea.Value, Is.True);
         }
 
+        [Test]
+        public void TestUseIpcForMapPoolProgressionSerialisation()
+        {
+            var defaultLadder = JsonConvert.DeserializeObject<LadderInfo>("{}", new JsonPointConverter());
+            Assert.That(defaultLadder, Is.Not.Null);
+            Assert.That(defaultLadder!.UseIPCForMapPoolProgression.Value, Is.False);
+
+            var ladder = createSampleLadder();
+            ladder.UseIPCForMapPoolProgression.Value = true;
+
+            string serialised = JsonConvert.SerializeObject(ladder);
+            var deserialised = JsonConvert.DeserializeObject<LadderInfo>(serialised, new JsonPointConverter());
+
+            Assert.That(deserialised, Is.Not.Null);
+            Assert.That(deserialised!.UseIPCForMapPoolProgression.Value, Is.True);
+        }
+
         private static LadderInfo createSampleLadder()
         {
             var match = TournamentTestScene.CreateSampleMatch();
