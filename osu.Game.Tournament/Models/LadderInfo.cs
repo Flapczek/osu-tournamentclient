@@ -50,5 +50,7 @@ namespace osu.Game.Tournament.Models
         public Bindable<bool> DisplayTeamSeeds = new BindableBool();
 
         public Bindable<bool> OneVsOneMode = new BindableBool();
+
+        public Bindable<bool> UseTosuForEZMultiplier = new BindableBool();
     }
 }

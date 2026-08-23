@@ -147,8 +147,8 @@ namespace osu.Game.Tournament.IPC
                             using (var stream = IPCStorage.GetStream(file_ipc_scores_filename))
                             using (var sr = new StreamReader(stream))
                             {
-                                Score1.Value = int.Parse(sr.ReadLine().AsNonNull());
-                                Score2.Value = int.Parse(sr.ReadLine().AsNonNull());
+                                FileScore1.Value = long.Parse(sr.ReadLine().AsNonNull());
+                                FileScore2.Value = long.Parse(sr.ReadLine().AsNonNull());
                             }
                         }
                         catch (Exception)

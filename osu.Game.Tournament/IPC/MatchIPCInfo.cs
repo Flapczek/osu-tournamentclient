@@ -15,7 +15,10 @@ namespace osu.Game.Tournament.IPC
         public Bindable<LegacyMods> Mods { get; } = new Bindable<LegacyMods>();
         public Bindable<TourneyState> State { get; } = new Bindable<TourneyState>();
         public Bindable<string> ChatChannel { get; } = new Bindable<string>();
+        public BindableLong FileScore1 { get; } = new BindableLong();
+        public BindableLong FileScore2 { get; } = new BindableLong();
         public BindableLong Score1 { get; } = new BindableLong();
         public BindableLong Score2 { get; } = new BindableLong();
+        public Bindable<TosuConnectionState> TosuConnectionState { get; } = new Bindable<TosuConnectionState>();
     }
 }

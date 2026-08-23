@@ -205,6 +205,7 @@ namespace osu.Game.Tournament
                 dependencies.Cache(ladder);
                 dependencies.CacheAs<MatchIPCInfo>(ipc = new FileBasedIPC());
                 Add(ipc);
+                Add(new TosuScoreProvider());
 
                 bracketLoadTaskCompletionSource.SetResult(true);
 
