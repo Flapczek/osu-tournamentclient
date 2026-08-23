@@ -155,6 +155,13 @@ namespace osu.Game.Tournament.Screens.Setup
                     Description = "Display Player 1 and Player 2 instead of Team Red and Team Blue.",
                     Current = LadderInfo.OneVsOneMode,
                 },
+                new LabelledSwitchButton
+                {
+                    Label = "Use tosu for EZ multiplier",
+                    Description = "Connect to tosu and apply each map's configured correction factor to players using Easy. Maps without a multiplier keep standard tournament scores.",
+                    Current = LadderInfo.UseTosuForEZMultiplier,
+                },
+                new TosuConnectionStatus(),
             };
         }
 
