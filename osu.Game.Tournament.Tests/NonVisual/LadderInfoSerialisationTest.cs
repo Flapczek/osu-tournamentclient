@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -72,12 +73,37 @@ namespace osu.Game.Tournament.Tests.NonVisual
         }
 
         [Test]
+        public void TestTosuEzMultiplierSerialisation()
+        {
+            var defaultLadder = JsonConvert.DeserializeObject<LadderInfo>("{}", new JsonPointConverter());
+            Assert.That(defaultLadder, Is.Not.Null);
+            Assert.That(defaultLadder!.UseTosuForEZMultiplier.Value, Is.False);
+
+            var ladder = createSampleLadder();
+            ladder.UseTosuForEZMultiplier.Value = true;
+            ladder.Rounds[0].Beatmaps[0].EZMultiplier = 1.25;
+
+            string serialised = JsonConvert.SerializeObject(ladder, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+            var deserialised = JsonConvert.DeserializeObject<LadderInfo>(serialised, new JsonPointConverter());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(deserialised, Is.Not.Null);
+                Assert.That(deserialised!.UseTosuForEZMultiplier.Value, Is.True);
+                Assert.That(deserialised.Rounds[0].Beatmaps[0].EZMultiplier, Is.EqualTo(1.25));
+                Assert.That(deserialised.Rounds[0].Beatmaps[1].EZMultiplier, Is.Null);
+            });
+        }
+
+        [Test]
         public void TestCompatibleSerialisationRemovesEnhancedProperties()
         {
             var ladder = createSampleLadder();
             ladder.OneVsOneMode.Value = true;
             ladder.WipeChromaArea.Value = true;
             ladder.UseIPCForMapPoolProgression.Value = true;
+            ladder.UseTosuForEZMultiplier.Value = true;
+            ladder.Rounds[0].Beatmaps[0].EZMultiplier = 1.25;
 
             string serialised = JsonConvert.SerializeObject(ladder);
             var compatibleBracket = JObject.Parse(CompatibleBracketSerialiser.CreateCompatibleBracket(serialised));
@@ -87,6 +113,8 @@ namespace osu.Game.Tournament.Tests.NonVisual
                 Assert.That(compatibleBracket.Property(nameof(LadderInfo.OneVsOneMode)), Is.Null);
                 Assert.That(compatibleBracket.Property(nameof(LadderInfo.WipeChromaArea)), Is.Null);
                 Assert.That(compatibleBracket.Property(nameof(LadderInfo.UseIPCForMapPoolProgression)), Is.Null);
+                Assert.That(compatibleBracket.Property(nameof(LadderInfo.UseTosuForEZMultiplier)), Is.Null);
+                Assert.That(compatibleBracket.SelectToken($"{nameof(LadderInfo.Rounds)}[0].{nameof(TournamentRound.Beatmaps)}[0].{nameof(RoundBeatmap.EZMultiplier)}"), Is.Null);
             });
         }
 
@@ -101,6 +129,9 @@ namespace osu.Game.Tournament.Tests.NonVisual
             string serialised = JsonConvert.SerializeObject(ladder);
             var compatibleBracket = JObject.Parse(CompatibleBracketSerialiser.CreateCompatibleBracket(serialised));
             var originalBracket = JObject.Parse(serialised);
+
+            foreach (var beatmap in originalBracket.SelectTokens($"{nameof(LadderInfo.Rounds)}[*].{nameof(TournamentRound.Beatmaps)}[*]").OfType<JObject>())
+                beatmap.Remove(nameof(RoundBeatmap.EZMultiplier));
 
             Assert.Multiple(() =>
             {
