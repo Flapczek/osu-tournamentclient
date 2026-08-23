@@ -10,6 +10,12 @@ namespace osu.Game.Tournament.Models
         public int ID;
         public string Mods = string.Empty;
 
+        /// <summary>
+        /// Correction factor applied to scores achieved with Easy when tosu score processing is enabled.
+        /// A null value opts this beatmap out of tosu score processing entirely.
+        /// </summary>
+        public double? EZMultiplier;
+
         [JsonProperty("BeatmapInfo")]
         public TournamentBeatmap? Beatmap;
     }

@@ -163,6 +163,8 @@ namespace osu.Game.Tournament.Screens.Editors
 
                     private readonly Bindable<string> mods = new Bindable<string>(string.Empty);
 
+                    private readonly Bindable<double?> ezMultiplier = new Bindable<double?>();
+
                     private readonly Container drawableContainer;
 
                     public RoundBeatmapRow(TournamentRound team, RoundBeatmap beatmap)
@@ -206,6 +208,13 @@ namespace osu.Game.Tournament.Screens.Editors
                                         RelativeSizeAxes = Axes.None,
                                         Width = 200,
                                         Current = mods,
+                                    },
+                                    new SettingsMultiplierBox
+                                    {
+                                        LabelText = "EZ multiplier",
+                                        RelativeSizeAxes = Axes.None,
+                                        Width = 200,
+                                        Current = ezMultiplier,
                                     },
                                     drawableContainer = new Container
                                     {
@@ -265,6 +274,9 @@ namespace osu.Game.Tournament.Screens.Editors
 
                         mods.Value = Model.Mods;
                         mods.BindValueChanged(modString => Model.Mods = modString.NewValue);
+
+                        ezMultiplier.Value = Model.EZMultiplier;
+                        ezMultiplier.BindValueChanged(multiplier => Model.EZMultiplier = multiplier.NewValue);
                     }
 
                     private void updatePanel() => Schedule(() =>
