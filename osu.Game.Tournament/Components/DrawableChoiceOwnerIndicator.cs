@@ -7,9 +7,9 @@ using osu.Game.Tournament.Models;
 
 namespace osu.Game.Tournament.Components
 {
-    internal partial class DrawablePickOwnerIndicator : TournamentSpriteTextWithBackground
+    internal partial class DrawableChoiceOwnerIndicator : TournamentSpriteTextWithBackground
     {
-        public DrawablePickOwnerIndicator(Anchor anchor)
+        public DrawableChoiceOwnerIndicator(Anchor anchor)
         {
             Anchor = anchor;
             Origin = anchor;
@@ -22,10 +22,10 @@ namespace osu.Game.Tournament.Components
             Text.Padding = new MarginPadding { Horizontal = 8, Vertical = 3 };
         }
 
-        public void ShowForPick(TeamColour team, string username)
+        public void ShowForChoice(ChoiceType choiceType, TeamColour team, string username)
         {
             Background.Colour = TournamentGame.GetTeamColour(team);
-            Text.Text = $"PICKED BY {username}".ToUpperInvariant();
+            Text.Text = $"{(choiceType == ChoiceType.Ban ? "BANNED" : "PICKED")} BY {username}".ToUpperInvariant();
             Alpha = 1;
         }
 

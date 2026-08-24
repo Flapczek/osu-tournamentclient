@@ -23,21 +23,24 @@ namespace osu.Game.Tournament.Components
         public readonly IBeatmapInfo? Beatmap;
 
         private readonly string mod;
-        private readonly Anchor? pickOwnerIndicatorAnchor;
+        private readonly Anchor? choiceOwnerIndicatorAnchor;
+        private readonly bool showBanOwnerIndicator;
 
         public const float HEIGHT = 50;
 
         private readonly Bindable<TournamentMatch?> currentMatch = new Bindable<TournamentMatch?>();
         private readonly BindableBool oneVsOneMode = new BindableBool();
 
+        private Container beatmapContent = null!;
         private Box flash = null!;
-        private DrawablePickOwnerIndicator? pickOwnerIndicator;
+        private DrawableChoiceOwnerIndicator? choiceOwnerIndicator;
 
-        public TournamentBeatmapPanel(IBeatmapInfo? beatmap, string mod = "", Anchor? pickOwnerIndicatorAnchor = null)
+        public TournamentBeatmapPanel(IBeatmapInfo? beatmap, string mod = "", Anchor? choiceOwnerIndicatorAnchor = null, bool showBanOwnerIndicator = false)
         {
             Beatmap = beatmap;
             this.mod = mod;
-            this.pickOwnerIndicatorAnchor = pickOwnerIndicatorAnchor;
+            this.choiceOwnerIndicatorAnchor = choiceOwnerIndicatorAnchor;
+            this.showBanOwnerIndicator = showBanOwnerIndicator;
 
             Width = 400;
             Height = HEIGHT;
@@ -55,63 +58,72 @@ namespace osu.Game.Tournament.Components
 
             AddRangeInternal(new Drawable[]
             {
-                new Box
+                beatmapContent = new Container
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Colour = Color4.Black,
-                },
-                new NoUnloadBeatmapSetCover
-                {
-                    RelativeSizeAxes = Axes.Both,
-                    Colour = OsuColour.Gray(0.5f),
-                    OnlineInfo = (Beatmap as IBeatmapSetOnlineInfo),
-                },
-                new FillFlowContainer
-                {
-                    AutoSizeAxes = Axes.Both,
-                    Anchor = Anchor.CentreLeft,
-                    Origin = Anchor.CentreLeft,
-                    Padding = new MarginPadding(15),
-                    Direction = FillDirection.Vertical,
+                    Name = "Beatmap content",
+                    Masking = true,
                     Children = new Drawable[]
                     {
-                        new TournamentSpriteText
+                        new Box
                         {
-                            Text = Beatmap?.GetDisplayTitleRomanisable(false, false) ?? (LocalisableString)@"unknown",
-                            Font = OsuFont.Torus.With(weight: FontWeight.Bold),
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = Color4.Black,
+                        },
+                        new NoUnloadBeatmapSetCover
+                        {
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = OsuColour.Gray(0.5f),
+                            OnlineInfo = (Beatmap as IBeatmapSetOnlineInfo),
                         },
                         new FillFlowContainer
                         {
                             AutoSizeAxes = Axes.Both,
-                            Direction = FillDirection.Horizontal,
+                            Anchor = Anchor.CentreLeft,
+                            Origin = Anchor.CentreLeft,
+                            Padding = new MarginPadding(15),
+                            Direction = FillDirection.Vertical,
                             Children = new Drawable[]
                             {
                                 new TournamentSpriteText
                                 {
-                                    Text = "mapper",
-                                    Padding = new MarginPadding { Right = 5 },
-                                    Font = OsuFont.Torus.With(weight: FontWeight.Regular, size: 14)
+                                    Text = Beatmap?.GetDisplayTitleRomanisable(false, false) ?? (LocalisableString)@"unknown",
+                                    Font = OsuFont.Torus.With(weight: FontWeight.Bold),
                                 },
-                                new TournamentSpriteText
+                                new FillFlowContainer
                                 {
-                                    Text = Beatmap?.Metadata.Author.Username ?? "unknown",
-                                    Padding = new MarginPadding { Right = 20 },
-                                    Font = OsuFont.Torus.With(weight: FontWeight.Bold, size: 14)
-                                },
-                                new TournamentSpriteText
-                                {
-                                    Text = "difficulty",
-                                    Padding = new MarginPadding { Right = 5 },
-                                    Font = OsuFont.Torus.With(weight: FontWeight.Regular, size: 14)
-                                },
-                                new TournamentSpriteText
-                                {
-                                    Text = Beatmap?.DifficultyName ?? "unknown",
-                                    Font = OsuFont.Torus.With(weight: FontWeight.Bold, size: 14)
-                                },
-                            }
-                        }
-                    },
+                                    AutoSizeAxes = Axes.Both,
+                                    Direction = FillDirection.Horizontal,
+                                    Children = new Drawable[]
+                                    {
+                                        new TournamentSpriteText
+                                        {
+                                            Text = "mapper",
+                                            Padding = new MarginPadding { Right = 5 },
+                                            Font = OsuFont.Torus.With(weight: FontWeight.Regular, size: 14)
+                                        },
+                                        new TournamentSpriteText
+                                        {
+                                            Text = Beatmap?.Metadata.Author.Username ?? "unknown",
+                                            Padding = new MarginPadding { Right = 20 },
+                                            Font = OsuFont.Torus.With(weight: FontWeight.Bold, size: 14)
+                                        },
+                                        new TournamentSpriteText
+                                        {
+                                            Text = "difficulty",
+                                            Padding = new MarginPadding { Right = 5 },
+                                            Font = OsuFont.Torus.With(weight: FontWeight.Regular, size: 14)
+                                        },
+                                        new TournamentSpriteText
+                                        {
+                                            Text = Beatmap?.DifficultyName ?? "unknown",
+                                            Font = OsuFont.Torus.With(weight: FontWeight.Bold, size: 14)
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                    }
                 },
                 flash = new Box
                 {
@@ -126,7 +138,7 @@ namespace osu.Game.Tournament.Components
 
             if (!string.IsNullOrEmpty(mod))
             {
-                AddInternal(new TournamentModIcon(mod)
+                beatmapContent.Add(new TournamentModIcon(mod)
                 {
                     Anchor = Anchor.CentreRight,
                     Origin = Anchor.CentreRight,
@@ -136,8 +148,8 @@ namespace osu.Game.Tournament.Components
                 });
             }
 
-            if (pickOwnerIndicatorAnchor != null)
-                AddInternal(pickOwnerIndicator = new DrawablePickOwnerIndicator(pickOwnerIndicatorAnchor.Value));
+            if (choiceOwnerIndicatorAnchor != null)
+                AddInternal(choiceOwnerIndicator = new DrawableChoiceOwnerIndicator(choiceOwnerIndicatorAnchor.Value));
         }
 
         private void matchChanged(ValueChangedEvent<TournamentMatch?> match)
@@ -159,7 +171,7 @@ namespace osu.Game.Tournament.Components
         {
             if (currentMatch.Value == null)
             {
-                pickOwnerIndicator?.HideIndicator();
+                choiceOwnerIndicator?.HideIndicator();
                 choice = null;
                 return;
             }
@@ -173,39 +185,41 @@ namespace osu.Game.Tournament.Components
                 if (shouldFlash)
                     flash.FadeOutFromOne(500).Loop(0, 10);
 
-                BorderThickness = 6;
-
-                BorderColour = TournamentGame.GetTeamColour(newChoice.Team);
+                beatmapContent.BorderThickness = 6;
+                beatmapContent.BorderColour = TournamentGame.GetTeamColour(newChoice.Team);
 
                 switch (newChoice.Type)
                 {
                     case ChoiceType.Pick:
-                        Colour = Color4.White;
-                        Alpha = 1;
+                        beatmapContent.Colour = Color4.White;
+                        beatmapContent.Alpha = 1;
                         break;
 
                     case ChoiceType.Ban:
-                        Colour = Color4.Gray;
-                        Alpha = 0.5f;
+                        beatmapContent.Colour = Color4.Gray;
+                        beatmapContent.Alpha = 0.5f;
                         break;
                 }
             }
             else
             {
-                Colour = Color4.White;
-                BorderThickness = 0;
-                Alpha = 1;
+                beatmapContent.Colour = Color4.White;
+                beatmapContent.Alpha = 1;
+                beatmapContent.BorderThickness = 0;
             }
 
-            updatePickOwnerIndicator(newChoice);
+            updateChoiceOwnerIndicator(newChoice);
             choice = newChoice;
         }
 
-        private void updatePickOwnerIndicator(BeatmapChoice? newChoice)
+        private void updateChoiceOwnerIndicator(BeatmapChoice? newChoice)
         {
-            if (pickOwnerIndicator == null || !oneVsOneMode.Value || newChoice?.Type != ChoiceType.Pick)
+            if (choiceOwnerIndicator == null
+                || !oneVsOneMode.Value
+                || newChoice == null
+                || (newChoice.Type == ChoiceType.Ban && !showBanOwnerIndicator))
             {
-                pickOwnerIndicator?.HideIndicator();
+                choiceOwnerIndicator?.HideIndicator();
                 return;
             }
 
@@ -215,11 +229,11 @@ namespace osu.Game.Tournament.Components
 
             if (team?.Players.Count != 1 || string.IsNullOrWhiteSpace(team.Players[0].Username))
             {
-                pickOwnerIndicator.HideIndicator();
+                choiceOwnerIndicator.HideIndicator();
                 return;
             }
 
-            pickOwnerIndicator.ShowForPick(newChoice.Team, team.Players[0].Username);
+            choiceOwnerIndicator.ShowForChoice(newChoice.Type, newChoice.Team, team.Players[0].Username);
         }
 
         private partial class NoUnloadBeatmapSetCover : UpdateableOnlineBeatmapSetCover

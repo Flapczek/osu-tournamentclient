@@ -14,7 +14,7 @@ using osuTK;
 
 namespace osu.Game.Tournament.Tests.Components
 {
-    public partial class TestScenePickOwnerIndicator : TournamentTestScene
+    public partial class TestSceneChoiceOwnerIndicator : TournamentTestScene
     {
         private TournamentBeatmap beatmap = null!;
         private TournamentBeatmapPanel mapPoolPanel = null!;
@@ -35,8 +35,8 @@ namespace osu.Game.Tournament.Tests.Components
                 Spacing = new Vector2(0, 10),
                 Children = new Drawable[]
                 {
-                    mapPoolPanel = new TournamentBeatmapPanel(beatmap, "NM", Anchor.BottomLeft),
-                    gameplayPanel = new TournamentBeatmapPanel(beatmap, pickOwnerIndicatorAnchor: Anchor.BottomRight),
+                    mapPoolPanel = new TournamentBeatmapPanel(beatmap, "NM", Anchor.BottomLeft, showBanOwnerIndicator: true),
+                    gameplayPanel = new TournamentBeatmapPanel(beatmap, choiceOwnerIndicatorAnchor: Anchor.BottomRight),
                     panelWithoutIndicator = new TournamentBeatmapPanel(beatmap),
                 }
             };
@@ -63,9 +63,9 @@ namespace osu.Game.Tournament.Tests.Components
         }
 
         [Test]
-        public void TestPickOwnerDisplay()
+        public void TestChoiceOwnerDisplay()
         {
-            AddAssert("non opted-in panel has no indicator", () => !panelWithoutIndicator.ChildrenOfType<DrawablePickOwnerIndicator>().Any());
+            AddAssert("non opted-in panel has no indicator", () => !panelWithoutIndicator.ChildrenOfType<DrawableChoiceOwnerIndicator>().Any());
 
             addPick(TeamColour.Red);
             AddAssert("hidden outside 1v1", () => getIndicator(mapPoolPanel).Alpha == 0);
@@ -81,7 +81,7 @@ namespace osu.Game.Tournament.Tests.Components
             addPick(TeamColour.Blue);
             assertIndicator(mapPoolPanel, Anchor.BottomLeft, "PICKED BY OPPONENT");
 
-            AddStep("replace pick with ban", () =>
+            AddStep("replace pick with red ban", () =>
             {
                 Ladder.CurrentMatch.Value!.PicksBans.Clear();
                 Ladder.CurrentMatch.Value.PicksBans.Add(new BeatmapChoice
@@ -91,7 +91,32 @@ namespace osu.Game.Tournament.Tests.Components
                     Type = ChoiceType.Ban,
                 });
             });
-            AddAssert("hidden for ban", () => getIndicator(mapPoolPanel).Alpha == 0);
+            assertIndicator(mapPoolPanel, Anchor.BottomLeft, "BANNED BY FLAPCZEK");
+            AddAssert("ban card content remains dimmed", () => getBeatmapContent(mapPoolPanel).Alpha == 0.5f);
+            AddAssert("ban indicator is fully opaque", () => getIndicator(mapPoolPanel).DrawColourInfo.Colour.AverageColour.Linear.A == 1);
+            AddAssert("ban indicator keeps full team colour", () => getIndicatorBackground(mapPoolPanel).DrawColourInfo.Colour.AverageColour == TournamentGame.COLOUR_RED);
+            AddAssert("ban hidden on gameplay", () => getIndicator(gameplayPanel).Alpha == 0);
+
+            AddStep("replace with blue ban", () =>
+            {
+                Ladder.CurrentMatch.Value!.PicksBans.Clear();
+                Ladder.CurrentMatch.Value.PicksBans.Add(new BeatmapChoice
+                {
+                    BeatmapID = beatmap.OnlineID,
+                    Team = TeamColour.Blue,
+                    Type = ChoiceType.Ban,
+                });
+            });
+            assertIndicator(mapPoolPanel, Anchor.BottomLeft, "BANNED BY OPPONENT");
+
+            AddStep("disable 1v1 with ban", () => Ladder.OneVsOneMode.Value = false);
+            AddAssert("ban hidden outside 1v1", () => getIndicator(mapPoolPanel).Alpha == 0);
+
+            AddStep("enable 1v1 with ban", () => Ladder.OneVsOneMode.Value = true);
+            assertIndicator(mapPoolPanel, Anchor.BottomLeft, "BANNED BY OPPONENT");
+
+            AddStep("remove ban", () => Ladder.CurrentMatch.Value!.PicksBans.Clear());
+            AddAssert("hidden after ban removed", () => getIndicator(mapPoolPanel).Alpha == 0);
 
             AddStep("add second red player and pick", () =>
             {
@@ -126,6 +151,10 @@ namespace osu.Game.Tournament.Tests.Components
             AddAssert($"{anchor} indicator text", () => getIndicator(panel).Text.Text.ToString() == text);
         }
 
-        private static DrawablePickOwnerIndicator getIndicator(TournamentBeatmapPanel panel) => panel.ChildrenOfType<DrawablePickOwnerIndicator>().Single();
+        private static DrawableChoiceOwnerIndicator getIndicator(TournamentBeatmapPanel panel) => panel.ChildrenOfType<DrawableChoiceOwnerIndicator>().Single();
+
+        private static Container getBeatmapContent(TournamentBeatmapPanel panel) => panel.ChildrenOfType<Container>().Single(container => container.Name == "Beatmap content");
+
+        private static Box getIndicatorBackground(TournamentBeatmapPanel panel) => getIndicator(panel).ChildrenOfType<Box>().Single();
     }
 }
