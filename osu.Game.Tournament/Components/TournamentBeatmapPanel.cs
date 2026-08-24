@@ -215,11 +215,22 @@ namespace osu.Game.Tournament.Components
         private void updateChoiceOwnerIndicator(BeatmapChoice? newChoice)
         {
             if (choiceOwnerIndicator == null
-                || !oneVsOneMode.Value
-                || newChoice == null
-                || (newChoice.Type == ChoiceType.Ban && !showBanOwnerIndicator))
+                || newChoice == null)
             {
                 choiceOwnerIndicator?.HideIndicator();
+                return;
+            }
+
+            if (newChoice.Type == ChoiceType.Pick && isTiebreaker())
+            {
+                choiceOwnerIndicator.ShowTiebreaker();
+                return;
+            }
+
+            if (!oneVsOneMode.Value
+                || (newChoice.Type == ChoiceType.Ban && !showBanOwnerIndicator))
+            {
+                choiceOwnerIndicator.HideIndicator();
                 return;
             }
 
@@ -235,6 +246,23 @@ namespace osu.Game.Tournament.Components
 
             choiceOwnerIndicator.ShowForChoice(newChoice.Type, newChoice.Team, team.Players[0].Username);
         }
+
+        private bool isTiebreaker()
+        {
+            if (!string.IsNullOrWhiteSpace(mod))
+                return isTiebreakerMod(mod);
+
+            if (Beatmap == null)
+                return false;
+
+            var roundBeatmap = currentMatch.Value?.Round.Value?.Beatmaps.FirstOrDefault(candidate =>
+                (candidate.Beatmap?.OnlineID ?? candidate.ID) == Beatmap.OnlineID);
+
+            return isTiebreakerMod(roundBeatmap?.Mods);
+        }
+
+        private static bool isTiebreakerMod(string? mods)
+            => string.Equals(mods?.Trim(), "TB", StringComparison.OrdinalIgnoreCase);
 
         private partial class NoUnloadBeatmapSetCover : UpdateableOnlineBeatmapSetCover
         {

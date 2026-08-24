@@ -25,7 +25,16 @@ namespace osu.Game.Tournament.Components
         public void ShowForChoice(ChoiceType choiceType, TeamColour team, string username)
         {
             Background.Colour = TournamentGame.GetTeamColour(team);
+            Text.Colour = TournamentGame.TEXT_COLOUR;
             Text.Text = $"{(choiceType == ChoiceType.Ban ? "BANNED" : "PICKED")} BY {username}".ToUpperInvariant();
+            Alpha = 1;
+        }
+
+        public void ShowTiebreaker()
+        {
+            Background.Colour = TournamentGame.ELEMENT_BACKGROUND_COLOUR;
+            Text.Colour = TournamentGame.ELEMENT_FOREGROUND_COLOUR;
+            Text.Text = "TIEBREAKER";
             Alpha = 1;
         }
 

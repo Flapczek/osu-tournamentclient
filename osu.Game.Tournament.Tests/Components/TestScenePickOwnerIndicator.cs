@@ -17,14 +17,18 @@ namespace osu.Game.Tournament.Tests.Components
     public partial class TestSceneChoiceOwnerIndicator : TournamentTestScene
     {
         private TournamentBeatmap beatmap = null!;
+        private TournamentBeatmap tiebreakerBeatmap = null!;
         private TournamentBeatmapPanel mapPoolPanel = null!;
         private TournamentBeatmapPanel gameplayPanel = null!;
+        private TournamentBeatmapPanel tiebreakerMapPoolPanel = null!;
+        private TournamentBeatmapPanel tiebreakerGameplayPanel = null!;
         private TournamentBeatmapPanel panelWithoutIndicator = null!;
 
         [BackgroundDependencyLoader]
         private void load()
         {
             beatmap = CreateSampleBeatmap();
+            tiebreakerBeatmap = CreateSampleBeatmap();
 
             Child = new FillFlowContainer
             {
@@ -37,6 +41,8 @@ namespace osu.Game.Tournament.Tests.Components
                 {
                     mapPoolPanel = new TournamentBeatmapPanel(beatmap, "NM", Anchor.BottomLeft, showBanOwnerIndicator: true),
                     gameplayPanel = new TournamentBeatmapPanel(beatmap, choiceOwnerIndicatorAnchor: Anchor.BottomRight),
+                    tiebreakerMapPoolPanel = new TournamentBeatmapPanel(tiebreakerBeatmap, " tb ", Anchor.BottomLeft, showBanOwnerIndicator: true),
+                    tiebreakerGameplayPanel = new TournamentBeatmapPanel(tiebreakerBeatmap, choiceOwnerIndicatorAnchor: Anchor.BottomRight),
                     panelWithoutIndicator = new TournamentBeatmapPanel(beatmap),
                 }
             };
@@ -57,6 +63,14 @@ namespace osu.Game.Tournament.Tests.Components
 
                 match.Team2.Value!.Players.Clear();
                 match.Team2.Value.Players.Add(new TournamentUser { Username = "opponent" });
+
+                match.Round.Value!.Beatmaps.Clear();
+                match.Round.Value.Beatmaps.Add(new RoundBeatmap
+                {
+                    ID = tiebreakerBeatmap.OnlineID,
+                    Beatmap = tiebreakerBeatmap,
+                    Mods = " TB ",
+                });
 
                 Ladder.OneVsOneMode.Value = false;
             });
@@ -135,6 +149,62 @@ namespace osu.Game.Tournament.Tests.Components
             AddAssert("hidden for empty username", () => getIndicator(mapPoolPanel).Alpha == 0);
         }
 
+        [Test]
+        public void TestTiebreakerDisplay()
+        {
+            AddStep("remove team players", () =>
+            {
+                Ladder.CurrentMatch.Value!.Team1.Value!.Players.Clear();
+                Ladder.CurrentMatch.Value.Team2.Value!.Players.Clear();
+            });
+
+            AddStep("pick tiebreaker outside 1v1", () => Ladder.CurrentMatch.Value!.PicksBans.Add(new BeatmapChoice
+            {
+                BeatmapID = tiebreakerBeatmap.OnlineID,
+                Team = TeamColour.Red,
+                Type = ChoiceType.Pick,
+            }));
+            assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
+            assertTiebreakerIndicator(tiebreakerGameplayPanel, Anchor.BottomRight);
+
+            AddStep("enable 1v1", () => Ladder.OneVsOneMode.Value = true);
+            assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
+            assertTiebreakerIndicator(tiebreakerGameplayPanel, Anchor.BottomRight);
+
+            AddStep("replace with blue tiebreaker pick", () =>
+            {
+                Ladder.CurrentMatch.Value!.PicksBans.Clear();
+                Ladder.CurrentMatch.Value.PicksBans.Add(new BeatmapChoice
+                {
+                    BeatmapID = tiebreakerBeatmap.OnlineID,
+                    Team = TeamColour.Blue,
+                    Type = ChoiceType.Pick,
+                });
+            });
+            assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
+            assertTiebreakerIndicator(tiebreakerGameplayPanel, Anchor.BottomRight);
+
+            AddStep("remove tiebreaker pick", () => Ladder.CurrentMatch.Value!.PicksBans.Clear());
+            AddAssert("map pool tiebreaker hidden", () => getIndicator(tiebreakerMapPoolPanel).Alpha == 0);
+            AddAssert("gameplay tiebreaker hidden", () => getIndicator(tiebreakerGameplayPanel).Alpha == 0);
+
+            AddStep("ban tiebreaker", () =>
+            {
+                Ladder.CurrentMatch.Value!.Team1.Value!.Players.Add(new TournamentUser { Username = "flapczek" });
+                Ladder.CurrentMatch.Value.PicksBans.Add(new BeatmapChoice
+                {
+                    BeatmapID = tiebreakerBeatmap.OnlineID,
+                    Team = TeamColour.Red,
+                    Type = ChoiceType.Ban,
+                });
+            });
+            assertIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft, "BANNED BY FLAPCZEK");
+            AddAssert("tiebreaker ban hidden on gameplay", () => getIndicator(tiebreakerGameplayPanel).Alpha == 0);
+
+            AddStep("disable 1v1", () => Ladder.OneVsOneMode.Value = false);
+            AddAssert("tiebreaker ban hidden outside 1v1", () => getIndicator(tiebreakerMapPoolPanel).Alpha == 0);
+        }
+
         private void addPick(TeamColour team) => AddStep($"add {team} pick", () => Ladder.CurrentMatch.Value!.PicksBans.Add(createPick(team)));
 
         private BeatmapChoice createPick(TeamColour team) => new BeatmapChoice
@@ -149,6 +219,17 @@ namespace osu.Game.Tournament.Tests.Components
             AddAssert($"{anchor} indicator visible", () => getIndicator(panel).Alpha == 1);
             AddAssert($"{anchor} indicator anchored", () => getIndicator(panel).Anchor == anchor && getIndicator(panel).Origin == anchor);
             AddAssert($"{anchor} indicator text", () => getIndicator(panel).Text.Text.ToString() == text);
+        }
+
+        private void assertTiebreakerIndicator(TournamentBeatmapPanel panel, Anchor anchor)
+        {
+            assertIndicator(panel, anchor, "TIEBREAKER");
+            AddAssert($"{anchor} tiebreaker background is white",
+                () => getIndicatorBackground(panel).DrawColourInfo.Colour.AverageColour == TournamentGame.ELEMENT_BACKGROUND_COLOUR);
+            AddAssert($"{anchor} tiebreaker text is black",
+                () => getIndicator(panel).Text.DrawColourInfo.Colour.AverageColour == TournamentGame.ELEMENT_FOREGROUND_COLOUR);
+            AddAssert($"{anchor} tiebreaker is fully opaque",
+                () => getIndicator(panel).DrawColourInfo.Colour.AverageColour.Linear.A == 1);
         }
 
         private static DrawableChoiceOwnerIndicator getIndicator(TournamentBeatmapPanel panel) => panel.ChildrenOfType<DrawableChoiceOwnerIndicator>().Single();
