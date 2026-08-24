@@ -21,6 +21,7 @@ using osu.Game.Online.API.Requests;
 using osu.Game.Tournament.IO;
 using osu.Game.Tournament.IPC;
 using osu.Game.Tournament.Models;
+using osu.Game.Tournament.Online;
 using osu.Game.Users;
 using osuTK.Input;
 
@@ -204,7 +205,10 @@ namespace osu.Game.Tournament
 
                 dependencies.Cache(ladder);
                 dependencies.CacheAs<MatchIPCInfo>(ipc = new FileBasedIPC());
+                var beatmapDifficultyAttributesProvider = new BeatmapDifficultyAttributesProvider();
+                dependencies.Cache(beatmapDifficultyAttributesProvider);
                 Add(ipc);
+                Add(beatmapDifficultyAttributesProvider);
                 Add(new TosuScoreProvider());
 
                 bracketLoadTaskCompletionSource.SetResult(true);
