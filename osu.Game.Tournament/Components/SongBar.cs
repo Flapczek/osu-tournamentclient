@@ -17,6 +17,7 @@ using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Screens.Menu;
+using osu.Game.Tournament.Online;
 using osu.Game.Utils;
 using osuTK;
 using osuTK.Graphics;
@@ -32,6 +33,9 @@ namespace osu.Game.Tournament.Components
         [Resolved]
         private IBindable<RulesetInfo> ruleset { get; set; } = null!;
 
+        [Resolved]
+        private BeatmapDifficultyAttributesProvider difficultyAttributesProvider { get; set; } = null!;
+
         public IBeatmapInfo? Beatmap
         {
             set
@@ -40,7 +44,7 @@ namespace osu.Game.Tournament.Components
                     return;
 
                 beatmap = value;
-                refreshContent();
+                Scheduler.AddOnce(updateContent);
             }
         }
 
@@ -52,9 +56,14 @@ namespace osu.Game.Tournament.Components
             set
             {
                 mods = value;
-                refreshContent();
+                Scheduler.AddOnce(updateContent);
             }
         }
+
+        private BeatmapDifficultyAttributesKey? starRatingKey;
+        private double? moddedStarRating;
+        private bool starRatingLookupPending;
+        private int starRatingLookupVersion;
 
         private FillFlowContainer flow = null!;
 
@@ -101,11 +110,46 @@ namespace osu.Game.Tournament.Components
             };
 
             Expanded = true;
+
+            ruleset.BindValueChanged(_ => Scheduler.AddOnce(updateContent), true);
+        }
+
+        private void updateContent()
+        {
+            BeatmapDifficultyAttributesKey? newKey = beatmap?.OnlineID > 0 && mods != LegacyMods.None
+                ? new BeatmapDifficultyAttributesKey(beatmap.OnlineID, mods, ruleset.Value.OnlineID)
+                : null;
+
+            if (starRatingKey != newKey)
+            {
+                starRatingKey = newKey;
+                moddedStarRating = null;
+                starRatingLookupPending = false;
+                starRatingLookupVersion++;
+            }
+
+            refreshContent();
+
+            if (newKey == null || moddedStarRating != null || starRatingLookupPending)
+                return;
+
+            starRatingLookupPending = true;
+            int lookupVersion = starRatingLookupVersion;
+
+            difficultyAttributesProvider.GetStarRating(newKey.Value, result =>
+            {
+                if (IsDisposed || lookupVersion != starRatingLookupVersion || starRatingKey != newKey)
+                    return;
+
+                starRatingLookupPending = false;
+                moddedStarRating = result;
+                refreshContent();
+            });
         }
 
         private void refreshContent()
         {
-            beatmap ??= new BeatmapInfo
+            IBeatmapInfo displayedBeatmap = beatmap ?? new BeatmapInfo
             {
                 Metadata = new BeatmapMetadata
                 {
@@ -128,18 +172,14 @@ namespace osu.Game.Tournament.Components
             var rulesetInstance = ruleset.Value.CreateInstance();
 
             var convertedMods = rulesetInstance.ConvertFromLegacyMods(mods).ToList();
-            var adjustedDifficulty = rulesetInstance.GetAdjustedDisplayDifficulty(beatmap, convertedMods);
+            var adjustedDifficulty = rulesetInstance.GetAdjustedDisplayDifficulty(displayedBeatmap, convertedMods);
 
             double rate = ModUtils.CalculateRateWithMods(convertedMods);
-            double bpm = FormatUtils.RoundBPM(beatmap.BPM, rate);
-            double length = beatmap.Length / rate;
+            double bpm = FormatUtils.RoundBPM(displayedBeatmap.BPM, rate);
+            double length = displayedBeatmap.Length / rate;
 
-            string srExtra = "";
-
-            if (convertedMods.Any(x => x is ModHardRock) || convertedMods.Any(x => x is ModDoubleTime))
-            {
-                srExtra = "*";
-            }
+            double displayedStarRating = moddedStarRating ?? displayedBeatmap.StarRating;
+            string srExtra = starRatingKey != null && moddedStarRating == null ? "*" : "";
 
             (string heading, string content)[] stats;
 
@@ -202,7 +242,7 @@ namespace osu.Game.Tournament.Components
                                         Children = new Drawable[]
                                         {
                                             new DiffPiece(stats),
-                                            new DiffPiece(("Star Rating", $"{beatmap.StarRating.FormatStarRating()}{srExtra}"))
+                                            new DiffPiece(("Star Rating", $"{displayedStarRating.FormatStarRating()}{srExtra}"))
                                         }
                                     },
                                     new FillFlowContainer
@@ -245,7 +285,7 @@ namespace osu.Game.Tournament.Components
                         }
                     }
                 },
-                new TournamentBeatmapPanel(beatmap, choiceOwnerIndicatorAnchor: Anchor.BottomRight)
+                new TournamentBeatmapPanel(displayedBeatmap, choiceOwnerIndicatorAnchor: Anchor.BottomRight)
                 {
                     RelativeSizeAxes = Axes.X,
                     Width = 0.5f,
