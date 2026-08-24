@@ -16,6 +16,8 @@ namespace osu.Game.Tournament.Components
 {
     public partial class TournamentMatchChatDisplay : StandAloneChatDisplay
     {
+        internal const float HEIGHT = 144;
+
         private readonly Bindable<string> channelName = new Bindable<string>();
 
         private ChannelManager? manager;
@@ -26,7 +28,7 @@ namespace osu.Game.Tournament.Components
         public TournamentMatchChatDisplay()
         {
             RelativeSizeAxes = Axes.X;
-            Height = 144;
+            Height = HEIGHT;
             Anchor = Anchor.BottomLeft;
             Origin = Anchor.BottomLeft;
 

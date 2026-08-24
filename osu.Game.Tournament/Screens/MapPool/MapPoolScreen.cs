@@ -24,6 +24,8 @@ namespace osu.Game.Tournament.Screens.MapPool
 {
     public partial class MapPoolScreen : TournamentMatchScreen
     {
+        private const float default_map_pool_y = 160;
+
         private FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>> mapFlows = null!;
 
         [Resolved]
@@ -71,7 +73,7 @@ namespace osu.Game.Tournament.Screens.MapPool
                 },
                 mapFlows = new FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>>
                 {
-                    Y = 160,
+                    Y = default_map_pool_y,
                     Spacing = new Vector2(10, 10),
                     Direction = FillDirection.Vertical,
                     RelativeSizeAxes = Axes.X,
@@ -137,6 +139,17 @@ namespace osu.Game.Tournament.Screens.MapPool
 
             LadderInfo.UseIPCForMapPoolProgression.BindValueChanged(useIpcForMapPoolProgressionChanged, true);
             LadderInfo.AutoProgressScreens.BindValueChanged(autoProgressScreensChanged, true);
+        }
+
+        protected override void UpdateAfterChildren()
+        {
+            base.UpdateAfterChildren();
+
+            if (mapFlows == null)
+                return;
+
+            float yAboveChat = DrawHeight - TournamentMatchChatDisplay.HEIGHT - mapFlows.DrawHeight;
+            mapFlows.Y = yAboveChat < default_map_pool_y ? yAboveChat : default_map_pool_y;
         }
 
         private void beatmapIdChanged(ValueChangedEvent<int> beatmapId)
@@ -513,7 +526,7 @@ namespace osu.Game.Tournament.Screens.MapPool
                     {
                         Anchor = Anchor.TopCentre,
                         Origin = Anchor.TopCentre,
-                        Height = 42,
+                        Height = 50,
                     });
                 }
             }

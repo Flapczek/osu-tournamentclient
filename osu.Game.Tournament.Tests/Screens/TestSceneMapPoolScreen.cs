@@ -4,6 +4,7 @@
 using System.Linq;
 using NUnit.Framework;
 using osu.Framework.Allocation;
+using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Testing;
 using osu.Game.Tournament.Components;
@@ -36,6 +37,8 @@ namespace osu.Game.Tournament.Tests.Screens
         private void resetState()
         {
             screen.Hide();
+            screen.RelativeSizeAxes = Axes.Both;
+            screen.Width = 0.7f;
 
             Ladder.AutoProgressScreens.Value = true;
             Ladder.UseIPCForMapPoolProgression.Value = true;
@@ -79,6 +82,61 @@ namespace osu.Game.Tournament.Tests.Screens
 
             assertTwoWide();
         }
+
+        [Test]
+        public void TestBeatmapCardHeight()
+        {
+            AddStep("load beatmap", () =>
+            {
+                Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps.Clear();
+                addBeatmap();
+            });
+
+            AddStep("reset state", resetState);
+
+            AddAssert("card height is 50", () => screen.ChildrenOfType<TournamentBeatmapPanel>().Single().Height == 50);
+            AddAssert("small pool starts at Y 160", () => getMapFlows().Y == 160);
+        }
+
+        [Test]
+        public void TestMapPoolOnlyMovesUpToAvoidChat()
+        {
+            AddStep("load 15 maps", () =>
+            {
+                Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps.Clear();
+
+                for (int i = 0; i < 15; i++)
+                    addBeatmap();
+            });
+
+            AddStep("reset state", resetState);
+            setProductionWidth();
+            AddAssert("15 maps stay at Y 160", () => getMapFlows().Y, () => Is.EqualTo(160));
+            AddAssert("15 maps leave space above chat", () => getMapFlows().Y + getMapFlows().DrawHeight < screen.DrawHeight - TournamentMatchChatDisplay.HEIGHT);
+
+            AddStep("load 21 maps", () =>
+            {
+                Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps.Clear();
+
+                for (int i = 0; i < 21; i++)
+                    addBeatmap($"MOD{i / 4}");
+            });
+
+            AddStep("reset state", resetState);
+            setProductionWidth();
+            AddAssert("large pool moves above Y 160", () => getMapFlows().Y < 160);
+            AddAssert("large pool ends at top of chat", () => getMapFlows().Y + getMapFlows().DrawHeight,
+                () => Is.EqualTo(screen.DrawHeight - TournamentMatchChatDisplay.HEIGHT).Within(0.01f));
+        }
+
+        private FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>> getMapFlows() =>
+            screen.ChildrenOfType<FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>>>().Single();
+
+        private void setProductionWidth() => AddStep("set production stream width", () =>
+        {
+            screen.RelativeSizeAxes = Axes.Y;
+            screen.Width = TournamentSceneManager.STREAM_AREA_WIDTH;
+        });
 
         [Test]
         public void TestJustEnoughMaps()
