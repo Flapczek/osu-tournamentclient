@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Collections.Generic;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -12,6 +13,8 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
 {
     public partial class MatchHeader : Container
     {
+        private readonly bool showRoundDisplay;
+
         private TeamScoreDisplay teamDisplay1 = null!;
         private TeamScoreDisplay teamDisplay2 = null!;
         private DrawableTournamentHeaderLogo logo = null!;
@@ -50,9 +53,41 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
             }
         }
 
+        public MatchHeader(bool showRoundDisplay = true)
+        {
+            this.showRoundDisplay = showRoundDisplay;
+        }
+
         [BackgroundDependencyLoader]
         private void load()
         {
+            logo = new DrawableTournamentHeaderLogo
+            {
+                Anchor = Anchor.TopCentre,
+                Origin = Anchor.TopCentre,
+                Alpha = showLogo ? 1 : 0
+            };
+
+            var centreElements = new List<Drawable>
+            {
+                logo,
+                new DrawableTournamentHeaderText
+                {
+                    Anchor = Anchor.TopCentre,
+                    Origin = Anchor.TopCentre,
+                },
+            };
+
+            if (showRoundDisplay)
+            {
+                centreElements.Add(new MatchRoundDisplay
+                {
+                    Anchor = Anchor.TopCentre,
+                    Origin = Anchor.TopCentre,
+                    Scale = new Vector2(0.4f)
+                });
+            }
+
             RelativeSizeAxes = Axes.X;
             Height = 95;
             Children = new Drawable[]
@@ -63,26 +98,7 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
                     Direction = FillDirection.Vertical,
                     Padding = new MarginPadding(20),
                     Spacing = new Vector2(5),
-                    Children = new Drawable[]
-                    {
-                        logo = new DrawableTournamentHeaderLogo
-                        {
-                            Anchor = Anchor.TopCentre,
-                            Origin = Anchor.TopCentre,
-                            Alpha = showLogo ? 1 : 0
-                        },
-                        new DrawableTournamentHeaderText
-                        {
-                            Anchor = Anchor.TopCentre,
-                            Origin = Anchor.TopCentre,
-                        },
-                        new MatchRoundDisplay
-                        {
-                            Anchor = Anchor.TopCentre,
-                            Origin = Anchor.TopCentre,
-                            Scale = new Vector2(0.4f)
-                        },
-                    }
+                    Children = centreElements
                 },
                 teamDisplay1 = new TeamScoreDisplay(TeamColour.Red)
                 {
@@ -95,6 +111,7 @@ namespace osu.Game.Tournament.Screens.Gameplay.Components
                     Origin = Anchor.TopRight,
                 },
             };
+
         }
 
         protected override void LoadComplete()

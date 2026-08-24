@@ -46,6 +46,10 @@ namespace osu.Game.Tournament.Tests.Components
             AddUntilStep("player 2 labels shown", () => countHeadersWithText("PLAYER 2"), () => Is.EqualTo(3));
         }
 
+        [Test]
+        public void TestRoundDisplayShownByDefault() =>
+            AddAssert("each header has a round display", () => this.ChildrenOfType<MatchHeader>().All(header => header.ChildrenOfType<MatchRoundDisplay>().Count() == 1));
+
         private int countHeadersWithText(string text) =>
             this.ChildrenOfType<DrawableTeamHeader>().Count(header => header.Text.Text.ToString() == text);
     }

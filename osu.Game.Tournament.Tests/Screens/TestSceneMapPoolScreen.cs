@@ -10,6 +10,7 @@ using osu.Framework.Testing;
 using osu.Game.Tournament.Components;
 using osu.Game.Tournament.IPC;
 using osu.Game.Tournament.Models;
+using osu.Game.Tournament.Screens.Gameplay.Components;
 using osu.Game.Tournament.Screens.MapPool;
 using osuTK;
 using osuTK.Input;
@@ -113,6 +114,7 @@ namespace osu.Game.Tournament.Tests.Screens
             setProductionWidth();
             AddAssert("15 maps stay at Y 160", () => getMapFlows().Y, () => Is.EqualTo(160));
             AddAssert("15 maps leave space above chat", () => getMapFlows().Y + getMapFlows().DrawHeight < screen.DrawHeight - TournamentMatchChatDisplay.HEIGHT);
+            assertRoundDisplayGap();
 
             AddStep("load 21 maps", () =>
             {
@@ -127,6 +129,13 @@ namespace osu.Game.Tournament.Tests.Screens
             AddAssert("large pool moves above Y 160", () => getMapFlows().Y < 160);
             AddAssert("large pool ends at top of chat", () => getMapFlows().Y + getMapFlows().DrawHeight,
                 () => Is.EqualTo(screen.DrawHeight - TournamentMatchChatDisplay.HEIGHT).Within(0.01f));
+            assertRoundDisplayGap();
+        }
+
+        [Test]
+        public void TestSingleRoundDisplay()
+        {
+            AddAssert("one round display", () => screen.ChildrenOfType<MatchRoundDisplay>().Count() == 1);
         }
 
         private FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>> getMapFlows() =>
@@ -137,6 +146,13 @@ namespace osu.Game.Tournament.Tests.Screens
             screen.RelativeSizeAxes = Axes.Y;
             screen.Width = TournamentSceneManager.STREAM_AREA_WIDTH;
         });
+
+        private void assertRoundDisplayGap() => AddAssert("round display is 10px above first card", () =>
+        {
+            float roundBottom = screen.ToLocalSpace(screen.ChildrenOfType<MatchRoundDisplay>().Single().ScreenSpaceDrawQuad.BottomLeft).Y;
+            float firstCardTop = screen.ToLocalSpace(screen.ChildrenOfType<TournamentBeatmapPanel>().First().ScreenSpaceDrawQuad.TopLeft).Y;
+            return firstCardTop - roundBottom;
+        }, () => Is.EqualTo(10).Within(0.01f));
 
         [Test]
         public void TestJustEnoughMaps()

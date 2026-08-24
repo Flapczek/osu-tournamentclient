@@ -25,8 +25,10 @@ namespace osu.Game.Tournament.Screens.MapPool
     public partial class MapPoolScreen : TournamentMatchScreen
     {
         private const float default_map_pool_y = 160;
+        private const float round_display_gap = 10;
 
         private FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>> mapFlows = null!;
+        private MatchRoundDisplay roundDisplay = null!;
 
         [Resolved]
         private TournamentSceneManager? sceneManager { get; set; }
@@ -67,9 +69,15 @@ namespace osu.Game.Tournament.Screens.MapPool
                     Loop = true,
                     RelativeSizeAxes = Axes.Both,
                 },
-                new MatchHeader
+                new MatchHeader(showRoundDisplay: false)
                 {
                     ShowScores = true,
+                },
+                roundDisplay = new MatchRoundDisplay
+                {
+                    Anchor = Anchor.TopCentre,
+                    Origin = Anchor.BottomCentre,
+                    Scale = new Vector2(0.4f),
                 },
                 mapFlows = new FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>>
                 {
@@ -150,6 +158,7 @@ namespace osu.Game.Tournament.Screens.MapPool
 
             float yAboveChat = DrawHeight - TournamentMatchChatDisplay.HEIGHT - mapFlows.DrawHeight;
             mapFlows.Y = yAboveChat < default_map_pool_y ? yAboveChat : default_map_pool_y;
+            roundDisplay.Y = mapFlows.Y + mapFlows.Padding.Top - round_display_gap;
         }
 
         private void beatmapIdChanged(ValueChangedEvent<int> beatmapId)
