@@ -9,7 +9,9 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Graphics.Transforms;
 using osu.Framework.Localisation;
+using osu.Framework.Threading;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.Drawables;
 using osu.Game.Graphics;
@@ -28,11 +30,21 @@ namespace osu.Game.Tournament.Components
 
         public const float HEIGHT = 50;
 
+        private const double pick_flash_iteration_duration = 500;
+        private const int pick_flash_iterations = 10;
+
+        internal const double PICK_FLASH_TOTAL_DURATION = pick_flash_iteration_duration * pick_flash_iterations;
+
+        private const float pending_pick_glow_max_alpha = 0.2f;
+        private const double pending_pick_glow_half_cycle_duration = 2500;
+
         private readonly Bindable<TournamentMatch?> currentMatch = new Bindable<TournamentMatch?>();
         private readonly BindableBool oneVsOneMode = new BindableBool();
 
         private Container beatmapContent = null!;
         private Box flash = null!;
+        private Box pendingPickGlow = null!;
+        private ScheduledDelegate? scheduledPendingPickGlow;
         private DrawableChoiceOwnerIndicator? choiceOwnerIndicator;
 
         public TournamentBeatmapPanel(IBeatmapInfo? beatmap, string mod = "", Anchor? choiceOwnerIndicatorAnchor = null, bool showBanOwnerIndicator = false)
@@ -69,12 +81,22 @@ namespace osu.Game.Tournament.Components
                         {
                             RelativeSizeAxes = Axes.Both,
                             Colour = Color4.Black,
+                            Depth = 2,
                         },
                         new NoUnloadBeatmapSetCover
                         {
                             RelativeSizeAxes = Axes.Both,
                             Colour = OsuColour.Gray(0.5f),
                             OnlineInfo = (Beatmap as IBeatmapSetOnlineInfo),
+                            Depth = 1,
+                        },
+                        pendingPickGlow = new Box
+                        {
+                            Name = "Pending pick glow",
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = new Color4(244, 223, 201, 255),
+                            Depth = 0.5f,
+                            Alpha = 0,
                         },
                         new FillFlowContainer
                         {
@@ -152,6 +174,31 @@ namespace osu.Game.Tournament.Components
                 AddInternal(choiceOwnerIndicator = new DrawableChoiceOwnerIndicator(choiceOwnerIndicatorAnchor.Value));
         }
 
+        internal void StartPendingPickGlow(double delay = PICK_FLASH_TOTAL_DURATION)
+        {
+            StopPendingPickGlow();
+
+            scheduledPendingPickGlow = Scheduler.AddDelayed(() =>
+            {
+                scheduledPendingPickGlow = null;
+                var easing = new CubicBezierEasingFunction(0.42, 0, 0.58, 1);
+
+                pendingPickGlow
+                    .FadeTo(pending_pick_glow_max_alpha, pending_pick_glow_half_cycle_duration, easing)
+                    .Then().FadeTo(0, pending_pick_glow_half_cycle_duration, easing)
+                    .Loop();
+            }, delay);
+        }
+
+        internal void StopPendingPickGlow()
+        {
+            scheduledPendingPickGlow?.Cancel();
+            scheduledPendingPickGlow = null;
+
+            pendingPickGlow.ClearTransforms();
+            pendingPickGlow.Alpha = 0;
+        }
+
         private void matchChanged(ValueChangedEvent<TournamentMatch?> match)
         {
             if (match.OldValue != null)
@@ -183,7 +230,7 @@ namespace osu.Game.Tournament.Components
             if (newChoice != null)
             {
                 if (shouldFlash)
-                    flash.FadeOutFromOne(500).Loop(0, 10);
+                    flash.FadeOutFromOne(pick_flash_iteration_duration).Loop(0, pick_flash_iterations);
 
                 beatmapContent.BorderThickness = 6;
                 beatmapContent.BorderColour = newChoice.Type == ChoiceType.Pick && isTiebreaker()

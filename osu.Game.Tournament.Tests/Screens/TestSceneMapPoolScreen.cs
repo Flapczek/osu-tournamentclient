@@ -6,6 +6,7 @@ using NUnit.Framework;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Shapes;
 using osu.Framework.Testing;
 using osu.Game.Tournament.Components;
 using osu.Game.Tournament.IPC;
@@ -136,6 +137,57 @@ namespace osu.Game.Tournament.Tests.Screens
         public void TestSingleRoundDisplay()
         {
             AddAssert("one round display", () => screen.ChildrenOfType<MatchRoundDisplay>().Count() == 1);
+        }
+
+        [Test]
+        public void TestPendingPickGlowLifecycle()
+        {
+            AddAssert("production pending glow delay is five seconds",
+                () => ((TestMapPoolScreen)screen).ProductionPendingPickGlowDelay,
+                () => Is.EqualTo(TournamentBeatmapPanel.PICK_FLASH_TOTAL_DURATION));
+
+            prepareMapsForAutoProgression(3);
+            setProgressionSettings(useIpcProgression: false, autoProgressScreens: false);
+
+            pickMap(0);
+            assertPendingPickGlow(0, false);
+            waitForPendingPickGlow(0);
+
+            pickMap(1);
+            assertPendingPickGlow(0, false);
+            waitForPendingPickGlow(1);
+
+            AddStep("remove latest pick", () =>
+            {
+                var latestPick = Ladder.CurrentMatch.Value!.PicksBans.Last(choice => choice.Type == ChoiceType.Pick);
+                Ladder.CurrentMatch.Value.PicksBans.Remove(latestPick);
+            });
+            assertPendingPickGlow(1, false);
+
+            pickMap(1);
+            waitForPendingPickGlow(1);
+
+            AddStep("reset choices", () => screen.ChildrenOfType<TourneyButton>().First(button => button.Text == "Reset").TriggerClick());
+            assertAllPendingPickGlowsStopped();
+
+            AddStep("select red ban", () => screen.ChildrenOfType<TourneyButton>().First(button => button.Text == "Red Ban").TriggerClick());
+            AddStep("ban map 2", () => ((TestMapPoolScreen)screen).AddSelectedBeatmap(Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps[2].Beatmap!.OnlineID));
+            AddWaitStep("wait past pending glow delay", 30);
+            assertAllPendingPickGlowsStopped();
+
+            AddStep("reset choices again", () => screen.ChildrenOfType<TourneyButton>().First(button => button.Text == "Reset").TriggerClick());
+            pickMap(2);
+            waitForPendingPickGlow(2);
+
+            AddStep("hide map pool", () => screen.Hide());
+            assertAllPendingPickGlowsStopped();
+
+            AddStep("show map pool", () => screen.Show());
+            AddWaitStep("wait after returning", 30);
+            assertAllPendingPickGlowsStopped();
+
+            pickMap(0);
+            waitForPendingPickGlow(0);
         }
 
         private FillFlowContainer<FillFlowContainer<TournamentBeatmapPanel>> getMapFlows() =>
@@ -703,6 +755,22 @@ namespace osu.Game.Tournament.Tests.Screens
 
         private void waitPastTestTransitionDelay() => AddWaitStep("wait past timer delay", 90);
 
+        private void waitForPendingPickGlow(int mapIndex) => AddUntilStep($"map {mapIndex} pending glow starts", () => getPendingPickGlow(mapIndex).Alpha > 0);
+
+        private void assertPendingPickGlow(int mapIndex, bool active) => AddAssert(
+            $"map {mapIndex} pending glow is {(active ? "active" : "stopped")}",
+            () => active ? getPendingPickGlow(mapIndex).Alpha > 0 : getPendingPickGlow(mapIndex).Alpha == 0);
+
+        private void assertAllPendingPickGlowsStopped() => AddAssert("all pending pick glows are stopped",
+            () => screen.ChildrenOfType<Box>().Where(box => box.Name == "Pending pick glow").All(box => box.Alpha == 0));
+
+        private Box getPendingPickGlow(int mapIndex)
+        {
+            int beatmapId = Ladder.CurrentMatch.Value!.Round.Value!.Beatmaps[mapIndex].Beatmap!.OnlineID;
+            var panel = screen.ChildrenOfType<TournamentBeatmapPanel>().Single(candidate => candidate.IsAlive && candidate.Beatmap?.OnlineID == beatmapId);
+            return panel.ChildrenOfType<Box>().Single(box => box.Name == "Pending pick glow");
+        }
+
         private void assertGameplayTransitionCount(int expected) =>
             AddAssert($"gameplay transition count is {expected}", () => ((TestMapPoolScreen)screen).GameplayTransitionCount, () => Is.EqualTo(expected));
 
@@ -716,9 +784,11 @@ namespace osu.Game.Tournament.Tests.Screens
         {
             public int GameplayTransitionCount { get; private set; }
             public double ProductionIpcGameplayTransitionDelay => base.IpcGameplayTransitionDelay;
+            public double ProductionPendingPickGlowDelay => base.PendingPickGlowDelay;
 
             protected override double GameplayTransitionDelay => 1000;
             protected override double IpcGameplayTransitionDelay => 1000;
+            protected override double PendingPickGlowDelay => 250;
 
             protected override void ProgressToGameplay() => GameplayTransitionCount++;
 

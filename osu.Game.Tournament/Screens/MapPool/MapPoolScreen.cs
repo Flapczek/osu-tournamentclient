@@ -52,10 +52,12 @@ namespace osu.Game.Tournament.Screens.MapPool
         private int armedAfterPlayingStateVersion;
         private bool ipcProgressionArmed;
         private BeatmapChoice? expectedPick;
+        private BeatmapChoice? pendingPickGlowChoice;
         private readonly HashSet<BeatmapChoice> progressedPicks = new HashSet<BeatmapChoice>();
 
         protected virtual double GameplayTransitionDelay => 10000;
         protected virtual double IpcGameplayTransitionDelay => 2000;
+        protected virtual double PendingPickGlowDelay => TournamentBeatmapPanel.PICK_FLASH_TOTAL_DURATION;
 
         [BackgroundDependencyLoader]
         private void load(MatchIPCInfo ipc)
@@ -348,6 +350,8 @@ namespace osu.Game.Tournament.Screens.MapPool
 
         private void picksBansChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
+            updatePendingPickGlow(e);
+
             if (!updateExpectedPick())
                 return;
 
@@ -355,6 +359,54 @@ namespace osu.Game.Tournament.Screens.MapPool
 
             if (!LadderInfo.UseIPCForMapPoolProgression.Value)
                 scheduleTimerForExpectedPick();
+        }
+
+        private void updatePendingPickGlow(NotifyCollectionChangedEventArgs e)
+        {
+            if (!screenActive)
+            {
+                clearPendingPickGlow();
+                return;
+            }
+
+            var addedPick = e.NewItems?.OfType<BeatmapChoice>().LastOrDefault(choice => choice.Type == ChoiceType.Pick);
+
+            if (addedPick != null)
+            {
+                pendingPickGlowChoice = addedPick;
+                refreshPendingPickGlow();
+                return;
+            }
+
+            if (pendingPickGlowChoice != null && CurrentMatch.Value?.PicksBans.Contains(pendingPickGlowChoice) != true)
+                clearPendingPickGlow();
+        }
+
+        private void refreshPendingPickGlow()
+        {
+            stopPendingPickGlowOnPanels();
+
+            if (!screenActive || pendingPickGlowChoice == null || mapFlows == null)
+                return;
+
+            mapFlows.SelectMany(flow => flow)
+                    .FirstOrDefault(panel => panel.Beatmap?.OnlineID == pendingPickGlowChoice.BeatmapID)
+                    ?.StartPendingPickGlow(PendingPickGlowDelay);
+        }
+
+        private void clearPendingPickGlow()
+        {
+            pendingPickGlowChoice = null;
+            stopPendingPickGlowOnPanels();
+        }
+
+        private void stopPendingPickGlowOnPanels()
+        {
+            if (mapFlows == null)
+                return;
+
+            foreach (var panel in mapFlows.SelectMany(flow => flow))
+                panel.StopPendingPickGlow();
         }
 
         private bool updateExpectedPick(bool forceRearm = false)
@@ -463,6 +515,7 @@ namespace osu.Game.Tournament.Screens.MapPool
 
         public override void Hide()
         {
+            clearPendingPickGlow();
             screenActive = false;
             ipcProgressionArmed = false;
             cancelScheduledScreenChange();
@@ -478,6 +531,7 @@ namespace osu.Game.Tournament.Screens.MapPool
 
         protected override void CurrentMatchChanged(ValueChangedEvent<TournamentMatch?> match)
         {
+            clearPendingPickGlow();
             cancelScheduledScreenChange();
 
             if (match.OldValue != null)
@@ -494,6 +548,7 @@ namespace osu.Game.Tournament.Screens.MapPool
 
         private void updateDisplay()
         {
+            stopPendingPickGlowOnPanels();
             mapFlows.Clear();
 
             if (CurrentMatch.Value == null)
@@ -545,6 +600,9 @@ namespace osu.Game.Tournament.Screens.MapPool
                 // remove horizontal padding to increase flow width to 3 panels
                 Horizontal = totalRows > 9 ? 0 : 100
             };
+
+            if (pendingPickGlowChoice != null && screenActive)
+                Scheduler.AddOnce(refreshPendingPickGlow);
         }
     }
 }
