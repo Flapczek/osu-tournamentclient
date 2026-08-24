@@ -23,17 +23,21 @@ namespace osu.Game.Tournament.Components
         public readonly IBeatmapInfo? Beatmap;
 
         private readonly string mod;
+        private readonly Anchor? pickOwnerIndicatorAnchor;
 
         public const float HEIGHT = 50;
 
         private readonly Bindable<TournamentMatch?> currentMatch = new Bindable<TournamentMatch?>();
+        private readonly BindableBool oneVsOneMode = new BindableBool();
 
         private Box flash = null!;
+        private DrawablePickOwnerIndicator? pickOwnerIndicator;
 
-        public TournamentBeatmapPanel(IBeatmapInfo? beatmap, string mod = "")
+        public TournamentBeatmapPanel(IBeatmapInfo? beatmap, string mod = "", Anchor? pickOwnerIndicatorAnchor = null)
         {
             Beatmap = beatmap;
             this.mod = mod;
+            this.pickOwnerIndicatorAnchor = pickOwnerIndicatorAnchor;
 
             Width = 400;
             Height = HEIGHT;
@@ -44,6 +48,8 @@ namespace osu.Game.Tournament.Components
         {
             currentMatch.BindValueChanged(matchChanged);
             currentMatch.BindTo(ladder.CurrentMatch);
+            oneVsOneMode.BindTo(ladder.OneVsOneMode);
+            oneVsOneMode.BindValueChanged(_ => Scheduler.AddOnce(updateState));
 
             Masking = true;
 
@@ -109,9 +115,11 @@ namespace osu.Game.Tournament.Components
                 },
                 flash = new Box
                 {
+                    Name = "Pick flash",
                     RelativeSizeAxes = Axes.Both,
                     Colour = Color4.Gray,
                     Blending = BlendingParameters.Additive,
+                    Depth = -2,
                     Alpha = 0,
                 },
             });
@@ -127,6 +135,9 @@ namespace osu.Game.Tournament.Components
                     RelativeSizeAxes = Axes.Y,
                 });
             }
+
+            if (pickOwnerIndicatorAnchor != null)
+                AddInternal(pickOwnerIndicator = new DrawablePickOwnerIndicator(pickOwnerIndicatorAnchor.Value));
         }
 
         private void matchChanged(ValueChangedEvent<TournamentMatch?> match)
@@ -148,6 +159,8 @@ namespace osu.Game.Tournament.Components
         {
             if (currentMatch.Value == null)
             {
+                pickOwnerIndicator?.HideIndicator();
+                choice = null;
                 return;
             }
 
@@ -184,7 +197,29 @@ namespace osu.Game.Tournament.Components
                 Alpha = 1;
             }
 
+            updatePickOwnerIndicator(newChoice);
             choice = newChoice;
+        }
+
+        private void updatePickOwnerIndicator(BeatmapChoice? newChoice)
+        {
+            if (pickOwnerIndicator == null || !oneVsOneMode.Value || newChoice?.Type != ChoiceType.Pick)
+            {
+                pickOwnerIndicator?.HideIndicator();
+                return;
+            }
+
+            TournamentTeam? team = newChoice.Team == TeamColour.Red
+                ? currentMatch.Value?.Team1.Value
+                : currentMatch.Value?.Team2.Value;
+
+            if (team?.Players.Count != 1 || string.IsNullOrWhiteSpace(team.Players[0].Username))
+            {
+                pickOwnerIndicator.HideIndicator();
+                return;
+            }
+
+            pickOwnerIndicator.ShowForPick(newChoice.Team, team.Players[0].Username);
         }
 
         private partial class NoUnloadBeatmapSetCover : UpdateableOnlineBeatmapSetCover

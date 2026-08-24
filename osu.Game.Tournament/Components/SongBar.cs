@@ -245,7 +245,7 @@ namespace osu.Game.Tournament.Components
                         }
                     }
                 },
-                new TournamentBeatmapPanel(beatmap)
+                new TournamentBeatmapPanel(beatmap, pickOwnerIndicatorAnchor: Anchor.BottomRight)
                 {
                     RelativeSizeAxes = Axes.X,
                     Width = 0.5f,
