@@ -166,6 +166,8 @@ namespace osu.Game.Tournament.Tests.Components
             }));
             assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
             assertTiebreakerIndicator(tiebreakerGameplayPanel, Anchor.BottomRight);
+            assertTiebreakerBorder(tiebreakerMapPoolPanel, Anchor.BottomLeft);
+            assertTiebreakerBorder(tiebreakerGameplayPanel, Anchor.BottomRight);
 
             AddStep("enable 1v1", () => Ladder.OneVsOneMode.Value = true);
             assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
@@ -183,6 +185,8 @@ namespace osu.Game.Tournament.Tests.Components
             });
             assertTiebreakerIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft);
             assertTiebreakerIndicator(tiebreakerGameplayPanel, Anchor.BottomRight);
+            assertTiebreakerBorder(tiebreakerMapPoolPanel, Anchor.BottomLeft);
+            assertTiebreakerBorder(tiebreakerGameplayPanel, Anchor.BottomRight);
 
             AddStep("remove tiebreaker pick", () => Ladder.CurrentMatch.Value!.PicksBans.Clear());
             AddAssert("map pool tiebreaker hidden", () => getIndicator(tiebreakerMapPoolPanel).Alpha == 0);
@@ -199,6 +203,8 @@ namespace osu.Game.Tournament.Tests.Components
                 });
             });
             assertIndicator(tiebreakerMapPoolPanel, Anchor.BottomLeft, "BANNED BY FLAPCZEK");
+            AddAssert("tiebreaker ban keeps team border",
+                () => getBeatmapContent(tiebreakerMapPoolPanel).BorderColour.AverageColour == TournamentGame.COLOUR_RED);
             AddAssert("tiebreaker ban hidden on gameplay", () => getIndicator(tiebreakerGameplayPanel).Alpha == 0);
 
             AddStep("disable 1v1", () => Ladder.OneVsOneMode.Value = false);
@@ -230,6 +236,13 @@ namespace osu.Game.Tournament.Tests.Components
                 () => getIndicator(panel).Text.DrawColourInfo.Colour.AverageColour == TournamentGame.ELEMENT_FOREGROUND_COLOUR);
             AddAssert($"{anchor} tiebreaker is fully opaque",
                 () => getIndicator(panel).DrawColourInfo.Colour.AverageColour.Linear.A == 1);
+        }
+
+        private void assertTiebreakerBorder(TournamentBeatmapPanel panel, Anchor anchor)
+        {
+            AddAssert($"{anchor} tiebreaker border is visible", () => getBeatmapContent(panel).BorderThickness == 6);
+            AddAssert($"{anchor} tiebreaker border is white",
+                () => getBeatmapContent(panel).BorderColour.AverageColour == TournamentGame.ELEMENT_BACKGROUND_COLOUR);
         }
 
         private static DrawableChoiceOwnerIndicator getIndicator(TournamentBeatmapPanel panel) => panel.ChildrenOfType<DrawableChoiceOwnerIndicator>().Single();

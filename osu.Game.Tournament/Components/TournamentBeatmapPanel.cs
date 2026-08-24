@@ -186,7 +186,9 @@ namespace osu.Game.Tournament.Components
                     flash.FadeOutFromOne(500).Loop(0, 10);
 
                 beatmapContent.BorderThickness = 6;
-                beatmapContent.BorderColour = TournamentGame.GetTeamColour(newChoice.Team);
+                beatmapContent.BorderColour = newChoice.Type == ChoiceType.Pick && isTiebreaker()
+                    ? TournamentGame.ELEMENT_BACKGROUND_COLOUR
+                    : TournamentGame.GetTeamColour(newChoice.Team);
 
                 switch (newChoice.Type)
                 {
